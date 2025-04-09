@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <h2>Editando {{ object.codigo_legado }}</h2>
+    
+    <!-- Seletor de Artigos -->
+    <div class="row mb-4">
+        <div class="col">
+            <select id="itemSelector" class="form-select">
+                <option value="">Selecione um artigo...</option>
+                {% for item in itens_disponiveis %}
+                <option value="{{ item.id }}" data-hierarchy="{{ item.get_hierarchy }}">{{ item.artigo }} - {{ item.descricao }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Lista de Itens Adicionados -->
+    <form method="post">
+        {% csrf_token %}
+        {{ item_formset.management_form }}
+        
+        <div id="items-container">
+            {% for form in item_formset %}
+            <div class="item-card mb-3 p-3 border">
+                {{ form.as_p }}
+                <button type="button" class="btn btn-sm btn-danger remove-item">Remover</button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Alertas de Validação -->
+        <div id="validation-alerts" class="mt-4">
+            {% if version.invalid_items %}
+            <div class="alert alert-warning">
+                <h5>Itens com informações incompletas:</h5>
+                <ul>
+                    {% for item in version.invalid_items %}
+                    <li>{{ item.item.descricao }} - Faltando: {{ item.missing_attributes|join:", " }}</li>
+                    {% endfor %}
+                </ul>
+                <label>
+                    <input type="checkbox" name="ignore_warnings"> Prosseguir mesmo com alertas
+                </label>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" name="action" value="save" class="btn btn-primary">Salvar Versão</button>
+            <button type="submit" name="action" value="new_version" class="btn btn-secondary">Nova Versão</button>
+        </div>
+    </form>
+</div>
+
+{% include 'core/includes/dynamic_items_js.html' %}
+{% endblock %}
