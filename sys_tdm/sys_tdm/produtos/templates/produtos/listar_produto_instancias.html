@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Instâncias de Produtos</title>
+</head>
+<body>
+    <h1>Lista de Instâncias de Produtos</h1>
+    <a href="{% url 'criar_produto_instancia' %}">Criar Nova Instância de Produto</a>
+    <hr>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% if instancias %}
+        <ul>
+            {% for instancia in instancias %}
+                <li>{{ instancia.codigo }} (Template: {{ instancia.template.nome }}) - Quantidade: {{ instancia.quantidade }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nenhuma instância de produto encontrada.</p>
+    {% endif %}
+</body>
+</html>

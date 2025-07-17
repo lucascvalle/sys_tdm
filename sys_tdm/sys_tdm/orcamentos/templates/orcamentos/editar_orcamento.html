@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Orçamento {{ orcamento.codigo_legado }}</title>
+</head>
+<body>
+    <h1>Editar Orçamento: {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})</h1>
+    <a href="{% url 'listar_orcamentos' %}">Voltar para a Lista de Orçamentos</a>
+    <a href="{% url 'exportar_orcamento_excel' orcamento.id %}" style="margin-left: 20px;">Exportar para Excel</a>
+    <hr>
+
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <h2>Detalhes do Orçamento</h2>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="update_orcamento" value="1">
+        {{ orcamento_form.as_p }}
+        <button type="submit">Salvar Alterações no Orçamento</button>
+    </form>
+
+    <hr>
+
+    <h2>Itens do Orçamento</h2>
+    {% if itens_agrupados_por_categoria %}
+        {% for categoria_nome, categoria_data in itens_agrupados_por_categoria.items %}
+            <h3>{{ forloop.counter }} - {{ categoria_nome }} | Quantidade: {{ categoria_data.quantidade_categoria }} | Total : {{ categoria_data.total_categoria|floatformat:2 }} € </h3>
+            <ul>
+                {% for template_nome, template_data in categoria_data.templates.items %}
+                    <li>
+                        <p>{{ forloop.parentloop.counter }}.{{ forloop.counter }} - {{ template_data.instancias.0.instancia.template.descricao }}</p>
+                        <ul>
+                            {% for item in template_data.instancias %}
+                                <li>
+                                    {{ forloop.parentloop.parentloop.counter }}.{{ forloop.parentloop.counter }}.{{ forloop.counter }} |
+                                    {{ item.display_name }} |
+                                    <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        Quantidade: <input type="number" name="quantidade" value="{{ item.quantidade }}" min="1" style="width: 60px;"> |
+                                        Preço Unitário: <input type="number" name="preco_unitario" value="{{ item.preco_unitario|floatformat:2 }}" step="0.01" style="width: 80px;"> |
+                                        Total: {{ item.total|floatformat:2 }}
+                                        <button type="submit">Atualizar</button>
+                                    </form>
+                                    <form action="{% url 'remover_item_orcamento' orcamento.id item.id %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit">Remover</button>
+                                    </form>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endfor %}
+        <hr>
+        <h3>Total Geral do Orçamento: {{ total_geral_orcamento|floatformat:2 }}</h3>
+    {% else %}
+        <p>Nenhum item adicionado a este orçamento ainda.</p>
+    {% endif %}
+
+    <h3>Adicionar Novo Item</h3>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="add_item" value="1">
+        
+        <p>
+            <label for="categoria">Categoria:</label>
+            <select name="categoria" id="categoria">
+                <option value="">Selecione uma categoria</option>
+                {% for categoria in categorias %}
+                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <label for="template">Template do Produto:</label>
+            <select name="template" id="template">
+                <option value="">Selecione uma categoria primeiro</option>
+            </select>
+        </p>
+
+        <div id="atributos-container">
+            <!-- Atributos dinâmicos serão inseridos aqui -->
+        </div>
+
+        <p>
+            <label for="quantidade">Quantidade:</label>
+            <input type="number" name="quantidade" id="quantidade" value="1" min="1">
+        </p>
+
+        <p>
+            <label for="preco_unitario">Preço Unitário:</label>
+            <input type="number" name="preco_unitario" id="preco_unitario" step="0.01" value="0.00">
+        </p>
+
+        <button type="submit">Adicionar Item</button>
+    </form>
+
+    <script>
+        document.getElementById('categoria').addEventListener('change', function() {
+            const categoriaId = this.value;
+            const templateSelect = document.getElementById('template');
+            templateSelect.innerHTML = '<option value="">Carregando...</option>';
+
+            if (categoriaId) {
+                fetch(`/api/produtos/categoria/${categoriaId}/templates/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        templateSelect.innerHTML = '<option value="">Selecione um template</option>';
+                        data.forEach(template => {
+                            const option = document.createElement('option');
+                            option.value = template.id;
+                            option.textContent = template.nome;
+                            templateSelect.appendChild(option);
+                        });
+                    });
+            } else {
+                templateSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+            }
+        });
+
+        document.getElementById('template').addEventListener('change', function() {
+            const templateId = this.value;
+            const atributosContainer = document.getElementById('atributos-container');
+            atributosContainer.innerHTML = '';
+
+            if (templateId) {
+                fetch(`/api/produtos/template/${templateId}/atributos/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(atributo => {
+                            const p = document.createElement('p');
+                            const label = document.createElement('label');
+                            label.for = `atributo_${atributo.atributo__id}`;
+                            label.textContent = atributo.atributo__nome;
+                            const input = document.createElement('input');
+                            input.type = atributo.atributo__tipo === 'num' ? 'number' : 'text';
+                            input.name = `atributo_${atributo.atributo__id}`;
+                            input.id = `atributo_${atributo.atributo__id}`;
+                            p.appendChild(label);
+                            p.appendChild(input);
+                            atributosContainer.appendChild(p);
+                        });
+                    });
+            }
+        });
+    </script>
+
+</body>
+</html>

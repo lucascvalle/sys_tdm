@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Categorias</title>
+</head>
+<body>
+    <h1>Lista de Categorias</h1>
+    <a href="{% url 'criar_categoria' %}">Criar Nova Categoria</a>
+    <hr>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% if categorias %}
+        <ul>
+            {% for categoria in categorias %}
+                <li>{{ categoria.nome }} - {{ categoria.descricao }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nenhuma categoria encontrada.</p>
+    {% endif %}
+</body>
+</html>

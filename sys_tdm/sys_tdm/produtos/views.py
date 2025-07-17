@@ -1,0 +1,68 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.db.models import Q # Import Q for complex queries
+from .models import Categoria, Atributo, ItemMaterial, ProdutoTemplate, ProdutoInstancia
+from .forms import CategoriaForm, AtributoForm, ItemMaterialForm, ProdutoTemplateForm, ProdutoInstanciaForm
+from django.http import JsonResponse
+
+def produtos_home(request):
+    return render(request, 'produtos/produtos_home.html')
+
+def listar_categorias(request):
+    categorias = Categoria.objects.all()
+    return render(request, 'produtos/listar_categorias.html', {'categorias': categorias})
+
+def criar_categoria(request):
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Categoria criada com sucesso!")
+            return redirect('listar_categorias')
+        else:
+            messages.error(request, "Erro ao criar categoria. Verifique os dados.")
+    else:
+        form = CategoriaForm()
+    return render(request, 'produtos/criar_categoria.html', {'form': form})
+
+def listar_produtos_template(request):
+    produtos_template = ProdutoTemplate.objects.all()
+    
+    query = request.GET.get('q')
+    if query:
+        produtos_template = produtos_template.filter(
+            Q(nome__icontains=query) |
+            Q(descricao__icontains=query) |
+            Q(categoria__nome__icontains=query)
+        ).distinct()
+
+    return render(request, 'produtos/listar_produtos_template.html', {'produtos_template': produtos_template, 'query': query})
+
+def criar_produto_template(request):
+    if request.method == 'POST':
+        form = ProdutoTemplateForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Template de Produto criado com sucesso!")
+            return redirect('listar_produtos_template')
+        else:
+            messages.error(request, "Erro ao criar Template de Produto. Verifique os dados.")
+    else:
+        form = ProdutoTemplateForm()
+    return render(request, 'produtos/criar_produto_template.html', {'form': form})
+
+
+
+# TODO: Adicionar views para outros modelos (Atributo, ItemMaterial, etc.)
+# TODO: Adicionar views para edição, exclusão, e detalhes de cada item.
+
+# --- API Views ---
+
+def get_templates_by_categoria(request, categoria_id):
+    templates = ProdutoTemplate.objects.filter(categoria_id=categoria_id).values('id', 'nome')
+    return JsonResponse(list(templates), safe=False)
+
+def get_atributos_by_template(request, template_id):
+    template = get_object_or_404(ProdutoTemplate, pk=template_id)
+    atributos = template.atributos.all().values('atributo__id', 'atributo__nome', 'atributo__tipo')
+    return JsonResponse(list(atributos), safe=False)

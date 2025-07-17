@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Orçamentos</title>
+</head>
+<body>
+    <h1>Lista de Orçamentos</h1>
+    <a href="{% url 'criar_orcamento' %}">Criar Novo Orçamento</a>
+    <hr>
+    <form method="GET" action="">
+        <input type="text" name="q" placeholder="Buscar orçamentos..." value="{{ query|default_if_none:'' }}">
+        <button type="submit">Buscar</button>
+    </form>
+    <hr>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% if orcamentos %}
+        <ul>
+            {% for orcamento in orcamentos %}
+                <li>
+                    <a href="{% url 'editar_orcamento' orcamento.id %}">
+                        {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})
+                    </a>
+                    <form action="{% url 'excluir_orcamento' orcamento.id %}" method="post" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Tem certeza que deseja excluir o orçamento {{ orcamento.codigo_legado }}?');">
+                        {% csrf_token %}
+                        <button type="submit" style="color: red;">Excluir</button>
+                    </form>
+                    <br>
+                    Criado em: {{ orcamento.criado_em|date:"d/m/Y H:i" }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nenhum orçamento encontrado.</p>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck: # Adiciona verificação de saúde para o banco de dados
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    # O comando de inicialização será o CMD definido no Dockerfile
+    # command: sh -c "python sys_tdm/manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/usr/src/app/ # Monta a raiz do projeto no WORKDIR do contêiner
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy # Espera até que o serviço 'db' esteja saudável
+
+volumes:
+  postgres_data:
