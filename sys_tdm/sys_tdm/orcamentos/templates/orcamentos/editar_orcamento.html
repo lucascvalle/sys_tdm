@@ -1,109 +1,152 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Orçamento {{ orcamento.codigo_legado }}</title>
-</head>
-<body>
-    <h1>Editar Orçamento: {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})</h1>
-    <a href="{% url 'listar_orcamentos' %}">Voltar para a Lista de Orçamentos</a>
-    <a href="{% url 'exportar_orcamento_excel' orcamento.id %}" style="margin-left: 20px;">Exportar para Excel</a>
-    <hr>
+{% extends 'base.html' %}
+{% load orcamentos_extras %}
 
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% block title %}Editar Orçamento {{ orcamento.codigo_legado }} - SysTDM{% endblock %}
 
-    <h2>Detalhes do Orçamento</h2>
-    <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="update_orcamento" value="1">
-        {{ orcamento_form.as_p }}
-        <button type="submit">Salvar Alterações no Orçamento</button>
-    </form>
-
-    <hr>
-
-    <h2>Itens do Orçamento</h2>
-    {% if itens_agrupados_por_categoria %}
-        {% for categoria_nome, categoria_data in itens_agrupados_por_categoria.items %}
-            <h3>{{ forloop.counter }} - {{ categoria_nome }} | Quantidade: {{ categoria_data.quantidade_categoria }} | Total : {{ categoria_data.total_categoria|floatformat:2 }} € </h3>
-            <ul>
-                {% for template_nome, template_data in categoria_data.templates.items %}
-                    <li>
-                        <p>{{ forloop.parentloop.counter }}.{{ forloop.counter }} - {{ template_data.instancias.0.instancia.template.descricao }}</p>
-                        <ul>
-                            {% for item in template_data.instancias %}
-                                <li>
-                                    {{ forloop.parentloop.parentloop.counter }}.{{ forloop.parentloop.counter }}.{{ forloop.counter }} |
-                                    {{ item.display_name }} |
-                                    <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" style="display:inline;">
-                                        {% csrf_token %}
-                                        Quantidade: <input type="number" name="quantidade" value="{{ item.quantidade }}" min="1" style="width: 60px;"> |
-                                        Preço Unitário: <input type="number" name="preco_unitario" value="{{ item.preco_unitario|floatformat:2 }}" step="0.01" style="width: 80px;"> |
-                                        Total: {{ item.total|floatformat:2 }}
-                                        <button type="submit">Atualizar</button>
-                                    </form>
-                                    <form action="{% url 'remover_item_orcamento' orcamento.id item.id %}" method="post" style="display:inline;">
-                                        {% csrf_token %}
-                                        <button type="submit">Remover</button>
-                                    </form>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endfor %}
-        <hr>
-        <h3>Total Geral do Orçamento: {{ total_geral_orcamento|floatformat:2 }}</h3>
-    {% else %}
-        <p>Nenhum item adicionado a este orçamento ainda.</p>
-    {% endif %}
-
-    <h3>Adicionar Novo Item</h3>
-    <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="add_item" value="1">
-        
-        <p>
-            <label for="categoria">Categoria:</label>
-            <select name="categoria" id="categoria">
-                <option value="">Selecione uma categoria</option>
-                {% for categoria in categorias %}
-                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
-                {% endfor %}
-            </select>
-        </p>
-
-        <p>
-            <label for="template">Template do Produto:</label>
-            <select name="template" id="template">
-                <option value="">Selecione uma categoria primeiro</option>
-            </select>
-        </p>
-
-        <div id="atributos-container">
-            <!-- Atributos dinâmicos serão inseridos aqui -->
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Editar Orçamento: {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})</h1>
+        <div>
+            <a href="{% url 'listar_orcamentos' %}" class="btn btn-secondary me-2">Voltar para a Lista de Orçamentos</a>
+            <a href="{% url 'exportar_orcamento_excel' orcamento.id %}" class="btn btn-success me-2">Exportar para Excel</a>
+            <a href="{% url 'versionar_orcamento' orcamento.id %}" class="btn btn-info">Criar Nova Versão</a>
         </div>
+    </div>
 
-        <p>
-            <label for="quantidade">Quantidade:</label>
-            <input type="number" name="quantidade" id="quantidade" value="1" min="1">
-        </p>
+    <hr>
 
-        <p>
-            <label for="preco_unitario">Preço Unitário:</label>
-            <input type="number" name="preco_unitario" id="preco_unitario" step="0.01" value="0.00">
-        </p>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>Detalhes do Orçamento</h2>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="update_orcamento" value="1">
+                {% for field in orcamento_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field|add_class:"form-control" }}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Salvar Alterações no Orçamento</button>
+            </form>
+        </div>
+    </div>
 
-        <button type="submit">Adicionar Item</button>
-    </form>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>Itens do Orçamento</h2>
+        </div>
+        <div class="card-body">
+            {% if itens_agrupados_por_categoria %}
+                {% for categoria_nome, categoria_data in itens_agrupados_por_categoria.items %}
+                    <h3 class="mt-4 mb-3">{{ forloop.counter }} - {{ categoria_nome }} | Quantidade: {{ categoria_data.quantidade_categoria }} | Total : {{ categoria_data.total_categoria|floatformat:2 }} € </h3>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-striped table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Item</th>
+                                    <th>Quantidade</th>
+                                    <th>Preço Unitário</th>
+                                    <th>Total</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for template_nome, template_data in categoria_data.templates.items %}
+                                    {% for item in template_data.instancias %}
+                                        <tr>
+                                            <td>{{ forloop.parentloop.parentloop.counter }}.{{ forloop.parentloop.counter }}.{{ forloop.counter }}</td>
+                                            <td>{{ item.display_name }}</td>
+                                            <td>
+                                                <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline-flex align-items-center">
+                                                    {% csrf_token %}
+                                                    <input type="number" name="quantidade" value="{{ item.quantidade }}" min="1" class="form-control form-control-sm me-2" style="width: 80px;">
+                                                    <button type="submit" class="btn btn-sm btn-success">Atualizar</button>
+                                                </form>
+                                            </td>
+                                            <td>
+                                                <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline-flex align-items-center">
+                                                    {% csrf_token %}
+                                                    <input type="number" name="preco_unitario" value="{{ item.preco_unitario|floatformat:2 }}" step="0.01" class="form-control form-control-sm me-2" style="width: 100px;">
+                                                    <button type="submit" class="btn btn-sm btn-success">Atualizar</button>
+                                                </form>
+                                            </td>
+                                            <td>{{ item.total|floatformat:2 }} €</td>
+                                            <td>
+                                                <form action="{% url 'remover_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este item?');">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+                <h3 class="text-end mt-4">Total Geral do Or��amento: {{ total_geral_orcamento|floatformat:2 }} €</h3>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    Nenhum item adicionado a este orçamento ainda.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Adicionar Novo Item</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="add_item" value="1">
+
+                <div class="mb-3">
+                    <label for="categoria" class="form-label">Categoria:</label>
+                    <select name="categoria" id="categoria" class="form-select">
+                        <option value="">Selecione uma categoria</option>
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="template" class="form-label">Template do Produto:</label>
+                    <select name="template" id="template" class="form-select">
+                        <option value="">Selecione uma categoria primeiro</option>
+                    </select>
+                </div>
+
+                <div id="atributos-container" class="mb-3">
+                    <!-- Atributos dinâmicos serão inseridos aqui -->
+                </div>
+
+                <div class="mb-3">
+                    <label for="quantidade" class="form-label">Quantidade:</label>
+                    <input type="number" name="quantidade" id="quantidade" value="1" min="1" class="form-control">
+                </div>
+
+                <div class="mb-3">
+                    <label for="preco_unitario" class="form-label">Preço Unitário:</label>
+                    <input type="number" name="preco_unitario" id="preco_unitario" step="0.01" value="0.00" class="form-control">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Adicionar Item</button>
+            </form>
+        </div>
+    </div>
 
     <script>
         document.getElementById('categoria').addEventListener('change', function() {
@@ -138,22 +181,23 @@
                     .then(response => response.json())
                     .then(data => {
                         data.forEach(atributo => {
-                            const p = document.createElement('p');
+                            const div = document.createElement('div');
+                            div.classList.add('mb-3'); // Add Bootstrap margin-bottom
                             const label = document.createElement('label');
                             label.for = `atributo_${atributo.atributo__id}`;
+                            label.classList.add('form-label'); // Add Bootstrap form-label
                             label.textContent = atributo.atributo__nome;
                             const input = document.createElement('input');
                             input.type = atributo.atributo__tipo === 'num' ? 'number' : 'text';
                             input.name = `atributo_${atributo.atributo__id}`;
                             input.id = `atributo_${atributo.atributo__id}`;
-                            p.appendChild(label);
-                            p.appendChild(input);
-                            atributosContainer.appendChild(p);
+                            input.classList.add('form-control'); // Add Bootstrap form-control
+                            div.appendChild(label);
+                            div.appendChild(input);
+                            atributosContainer.appendChild(div);
                         });
                     });
             }
         });
     </script>
-
-</body>
-</html>
+{% endblock %}

@@ -7,6 +7,7 @@ from produtos.models import ProdutoInstancia, ProdutoTemplate, Categoria, Atribu
 import re
 from datetime import datetime
 from .excel_utils import exportar_orcamento_excel as export_excel_util
+from django.contrib.auth.decorators import login_required
 
 def _format_item_display_name(item):
     non_numeric_attrs = []
@@ -31,6 +32,7 @@ def _format_item_display_name(item):
 
     return display_name
 
+@login_required
 def listar_orcamentos(request):
     orcamentos = Orcamento.objects.all().order_by('-criado_em')
     
@@ -45,6 +47,7 @@ def listar_orcamentos(request):
 
     return render(request, 'orcamentos/listar_orcamentos.html', {'orcamentos': orcamentos, 'query': query})
 
+@login_required
 def criar_orcamento(request):
     if request.method == 'POST':
         codigo_legado = request.POST.get('codigo_legado', '').strip()
@@ -74,13 +77,9 @@ def criar_orcamento(request):
                     messages.error(request, f"Um orçamento com o código '{codigo_legado}' e versão {versao} já existe.")
                     return render(request, 'orcamentos/criar_orcamento.html', {})
 
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
-                usuario_padrao = User.objects.first()
-
                 orcamento = Orcamento.objects.create(
                     codigo_legado=codigo_legado,
-                    usuario=usuario_padrao,
+                    usuario=request.user,  # Associa ao usuário logado
                     nome_cliente=nome_cliente,
                     tipo_cliente=tipo_cliente_str,
                     codigo_cliente=codigo_cliente_str,
@@ -101,6 +100,7 @@ def criar_orcamento(request):
 
     return render(request, 'orcamentos/criar_orcamento.html', {})
 
+@login_required
 def editar_orcamento(request, orcamento_id):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
     itens_orcamento = orcamento.itens.all().select_related('instancia__template__categoria').prefetch_related('instancia__atributos__atributo')
@@ -198,6 +198,7 @@ def editar_orcamento(request, orcamento_id):
     }
     return render(request, 'orcamentos/editar_orcamento.html', context)
 
+@login_required
 def remover_item_orcamento(request, orcamento_id, item_id):
     if request.method == 'POST':
         orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
@@ -206,26 +207,33 @@ def remover_item_orcamento(request, orcamento_id, item_id):
         messages.success(request, "Item removido com sucesso!")
     return redirect('editar_orcamento', orcamento_id=orcamento_id)
 
+@login_required
 def atualizar_item_orcamento(request, orcamento_id, item_id):
     if request.method == 'POST':
         orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
         item = get_object_or_404(ItemOrcamento, pk=item_id, orcamento=orcamento)
         
         try:
-            quantidade = int(request.POST.get('quantidade'))
-            preco_unitario = float(request.POST.get('preco_unitario'))
+            if 'quantidade' in request.POST:
+                quantidade = int(request.POST.get('quantidade'))
+                if quantidade <= 0:
+                    messages.error(request, "A quantidade deve ser um número positivo.")
+                else:
+                    item.quantidade = quantidade
+                    item.save()
+                    messages.success(request, "Quantidade atualizada com sucesso!")
+            
+            if 'preco_unitario' in request.POST:
+                preco_unitario = float(request.POST.get('preco_unitario'))
+                if preco_unitario < 0:
+                    messages.error(request, "O preço unitário não pode ser negativo.")
+                else:
+                    item.preco_unitario = preco_unitario
+                    item.save()
+                    messages.success(request, "Preço unitário atualizado com sucesso!")
 
-            if quantidade <= 0:
-                messages.error(request, "A quantidade deve ser um número positivo.")
-            elif preco_unitario < 0:
-                messages.error(request, "O preço unitário não pode ser negativo.")
-            else:
-                item.quantidade = quantidade
-                item.preco_unitario = preco_unitario
-                item.save() # Isso recalculará o total devido ao método save no modelo ItemOrcamento
-                messages.success(request, "Item atualizado com sucesso!")
         except ValueError:
-            messages.error(request, "Quantidade e/ou preço unitário inválidos.")
+            messages.error(request, "Valor inválido para quantidade ou preço unitário.")
         except Exception as e:
             messages.error(request, f"Erro ao atualizar item: {e}")
 
@@ -233,6 +241,7 @@ def atualizar_item_orcamento(request, orcamento_id, item_id):
 
 
 
+@login_required
 def exportar_orcamento_excel(request, orcamento_id):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
 
@@ -272,6 +281,7 @@ def exportar_orcamento_excel(request, orcamento_id):
         messages.error(request, f"Erro ao exportar orçamento para Excel: {e}")
         return redirect('editar_orcamento', orcamento_id=orcamento.id)
 
+@login_required
 def excluir_orcamento(request, orcamento_id):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
     if request.method == 'POST':
@@ -282,4 +292,62 @@ def excluir_orcamento(request, orcamento_id):
     # Por simplicidade, vamos redirecionar para a lista com uma mensagem de erro se não for POST
     messages.error(request, "Método não permitido para exclusão direta.")
     return redirect('listar_orcamentos')
+
+
+@login_required
+def versionar_orcamento(request, orcamento_id):
+    orcamento_original = get_object_or_404(Orcamento, pk=orcamento_id)
+    nova_versao_num = orcamento_original.versao + 1
+
+    # Corrigido o uso do re.sub com sintaxe adequada
+    novo_codigo_legado = re.sub(
+        r'_V\d+$',
+        f'_V{nova_versao_num}',
+        orcamento_original.codigo_legado
+    )
+
+    # Bloco único de criação do novo orçamento (removida a duplicação)
+    novo_orcamento = Orcamento.objects.create(
+        codigo_legado=novo_codigo_legado,
+        usuario=request.user,
+        nome_cliente=orcamento_original.nome_cliente,
+        tipo_cliente=orcamento_original.tipo_cliente,
+        codigo_cliente=orcamento_original.codigo_cliente,
+        data_solicitacao=orcamento_original.data_solicitacao,
+        codigo_agente=orcamento_original.codigo_agente,
+        versao=nova_versao_num,
+        versao_base=orcamento_original.versao_base,
+    )
+
+    # Clona os itens do orçamento
+    for item_original in orcamento_original.itens.all():
+        instancia_original = item_original.instancia
+
+        # Clona a ProdutoInstancia
+        nova_instancia = ProdutoInstancia.objects.create(
+            template=instancia_original.template,
+            codigo=f"{instancia_original.template.nome}-{novo_orcamento.id}-{item_original.id}",
+            quantidade=instancia_original.quantidade
+        )
+
+        # Clona os atributos da instância
+        for atributo_instancia_original in instancia_original.atributos.all():
+            InstanciaAtributo.objects.create(
+                instancia=nova_instancia,
+                atributo=atributo_instancia_original.atributo,
+                valor_texto=atributo_instancia_original.valor_texto,
+                valor_num=atributo_instancia_original.valor_num
+            )
+
+        # Cria o novo ItemOrcamento
+        ItemOrcamento.objects.create(
+            orcamento=novo_orcamento,
+            instancia=nova_instancia,
+            quantidade=item_original.quantidade,
+            preco_unitario=item_original.preco_unitario,
+            codigo_item_manual=item_original.codigo_item_manual
+        )
+
+    messages.success(request, f"Nova versão (V{nova_versao_num}) do orçamento criada com sucesso.")
+    return redirect('editar_orcamento', orcamento_id=novo_orcamento.id)
 
