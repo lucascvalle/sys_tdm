@@ -1,17 +1,19 @@
-# sys_tdm
+# SysOrc
 
-Este é o repositório para o sistema de gerenciamento de orçamentos `sys_tdm`.
+Este é o repositório para o sistema de gerenciamento de orçamentos `SysOrc`.
 
 ## Descrição do Projeto
 
-O `sys_tdm` é um sistema desenvolvido para gerenciar orçamentos, permitindo a criação, edição e exportação de orçamentos para o formato Excel. Ele lida com a complexidade de diferentes tipos de produtos (Portas, Armários, Pavimentos) e suas respectivas medidas e formatações.
+O `SysOrc` é um sistema desenvolvido para gerenciar o ciclo completo de orçamentos. Ele permite a criação, edição e exportação de orçamentos para o formato Excel, focando na gestão eficiente dos itens de orçamento e seus cálculos.
 
 ## Funcionalidades
 
-- Criação e edição de orçamentos.
-- Gerenciamento de itens de orçamento com categorias, templates e instâncias de produtos.
-- Exportação de orçamentos para arquivos Excel (`.xlsx`) com formatação detalhada e preservação de cláusulas contratuais.
-- Suporte a diferentes tipos de produtos com atributos variados (largura, altura, profundidade, etc.).
+- Criação e edição de orçamentos com adição/remoção dinâmica de itens.
+- Cálculos automáticos de valores por item e total do orçamento.
+- Persistência e edição de orçamentos e seus itens.
+- Geração de documentos de orçamento para arquivos Excel (`.xlsx`).
+- Estilização da interface do usuário com as cores da marca.
+- Integração com o painel administrativo do Django para gerenciamento de templates de produtos.
 
 ## Configuração do Ambiente
 
