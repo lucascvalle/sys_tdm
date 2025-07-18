@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Q # Import Q for complex queries
 from .models import Orcamento, ItemOrcamento
-from .forms import OrcamentoForm
+from .forms import OrcamentoForm, CriarOrcamentoForm
 from produtos.models import ProdutoInstancia, ProdutoTemplate, Categoria, Atributo, InstanciaAtributo
 import re
 from datetime import datetime
@@ -50,55 +50,58 @@ def listar_orcamentos(request):
 @login_required
 def criar_orcamento(request):
     if request.method == 'POST':
-        codigo_legado = request.POST.get('codigo_legado', '').strip()
-        if not codigo_legado:
-            messages.error(request, "O código legado não pode estar vazio.")
-            return render(request, 'orcamentos/criar_orcamento.html', {})
+        form = CriarOrcamentoForm(request.POST)
+        if form.is_valid():
+            codigo_legado = form.cleaned_data['codigo_legado']
 
-        padrao = r"^(EP|PC)(\d+)-(\d{6})\.(\d+)-([A-Z]+)_V(\d+)$"
-        match = re.match(padrao, codigo_legado)
+            padrao = r"^(EP|PC)(\d+)-(\d{6})\.(\d+)-([A-Z]+)_V(\d+)$"
+            match = re.match(padrao, codigo_legado)
 
-        if match:
-            tipo_cliente_str = match.group(1)
-            codigo_cliente_str = match.group(2)
-            data_solicitacao_str = match.group(3)
-            num_agente_str = match.group(4)
-            iniciais_agente_str = match.group(5)
-            versao_str = match.group(6)
+            if match:
+                tipo_cliente_str = match.group(1)
+                codigo_cliente_str = match.group(2)
+                data_solicitacao_str = match.group(3)
+                num_agente_str = match.group(4)
+                iniciais_agente_str = match.group(5)
+                versao_str = match.group(6)
 
-            try:
-                data_solicitacao = datetime.strptime(data_solicitacao_str, "%d%m%y").date()
-                versao = int(versao_str)
+                try:
+                    data_solicitacao = datetime.strptime(data_solicitacao_str, "%d%m%y").date()
+                    versao = int(versao_str)
 
-                nome_cliente = f"Cliente {codigo_cliente_str}"
-                codigo_agente = f"{num_agente_str}-{iniciais_agente_str}"
+                    nome_cliente = f"Cliente {codigo_cliente_str}"
+                    codigo_agente = f"{num_agente_str}-{iniciais_agente_str}"
 
-                if Orcamento.objects.filter(codigo_legado=codigo_legado, versao=versao).exists():
-                    messages.error(request, f"Um orçamento com o código '{codigo_legado}' e versão {versao} já existe.")
-                    return render(request, 'orcamentos/criar_orcamento.html', {})
+                    if Orcamento.objects.filter(codigo_legado=codigo_legado, versao=versao).exists():
+                        messages.error(request, f"Um orçamento com o código '{codigo_legado}' e versão {versao} já existe.")
+                        return render(request, 'orcamentos/criar_orcamento.html', {'form': form})
 
-                orcamento = Orcamento.objects.create(
-                    codigo_legado=codigo_legado,
-                    usuario=request.user,  # Associa ao usuário logado
-                    nome_cliente=nome_cliente,
-                    tipo_cliente=tipo_cliente_str,
-                    codigo_cliente=codigo_cliente_str,
-                    data_solicitacao=data_solicitacao,
-                    codigo_agente=codigo_agente,
-                    versao=versao,
-                    versao_base=versao
-                )
-                messages.success(request, f"Orçamento '{orcamento.codigo_legado}' criado com sucesso!")
-                return redirect('listar_orcamentos')
+                    orcamento = Orcamento.objects.create(
+                        codigo_legado=codigo_legado,
+                        usuario=request.user,  # Associa ao usuário logado
+                        nome_cliente=nome_cliente,
+                        tipo_cliente=tipo_cliente_str,
+                        codigo_cliente=codigo_cliente_str,
+                        data_solicitacao=data_solicitacao,
+                        codigo_agente=codigo_agente,
+                        versao=versao,
+                        versao_base=versao
+                    )
+                    messages.success(request, f"Orçamento '{orcamento.codigo_legado}' criado com sucesso!")
+                    return redirect('listar_orcamentos')
 
-            except ValueError as e:
-                messages.error(request, f"Erro ao parsear dados do código: {e}")
-            except Exception as e:
-                messages.error(request, f"Ocorreu um erro inesperado: {e}")
+                except ValueError as e:
+                    messages.error(request, f"Erro ao parsear dados do código: {e}")
+                except Exception as e:
+                    messages.error(request, f"Ocorreu um erro inesperado: {e}")
+            else:
+                messages.error(request, "Formato do código legado inválido. Use o formato: EP107-250625.80-ELLA_V2")
         else:
-            messages.error(request, "Formato do código legado inválido. Use o formato: EP107-250625.80-ELLA_V2")
-
-    return render(request, 'orcamentos/criar_orcamento.html', {})
+            # Se o formulário não for válido (ex: campo vazio), renderiza com erros
+            messages.error(request, "Por favor, corrija os erros no formulário.")
+    else:
+        form = CriarOrcamentoForm()
+    return render(request, 'orcamentos/criar_orcamento.html', {'form': form})
 
 @login_required
 def editar_orcamento(request, orcamento_id):

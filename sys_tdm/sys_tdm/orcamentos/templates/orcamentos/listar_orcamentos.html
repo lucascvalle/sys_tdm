@@ -1,44 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Orçamentos</title>
-</head>
-<body>
-    <h1>Lista de Orçamentos</h1>
-    <a href="{% url 'criar_orcamento' %}">Criar Novo Orçamento</a>
-    <hr>
-    <form method="GET" action="">
-        <input type="text" name="q" placeholder="Buscar orçamentos..." value="{{ query|default_if_none:'' }}">
-        <button type="submit">Buscar</button>
+{% extends 'base.html' %}
+
+{% block title %}Lista de Orçamentos - SysOrc{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Lista de Orçamentos</h1>
+        <div>
+            <a href="{% url 'home' %}" class="btn btn-secondary">Voltar para Home</a>
+            <a href="{% url 'criar_orcamento' %}" class="btn btn-primary">Criar Novo Orçamento</a>
+        </div>
+    </div>
+
+    <form method="GET" action="" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="q" class="form-control" placeholder="Buscar por código, cliente..." value="{{ query|default_if_none:'' }}">
+            <button type="submit" class="btn btn-outline-secondary">Buscar</button>
+        </div>
     </form>
-    <hr>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li>{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+
     {% if orcamentos %}
-        <ul>
+        <ul class="list-group">
             {% for orcamento in orcamentos %}
-                <li>
-                    <a href="{% url 'editar_orcamento' orcamento.id %}">
-                        {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})
-                    </a>
-                    <form action="{% url 'excluir_orcamento' orcamento.id %}" method="post" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Tem certeza que deseja excluir o orçamento {{ orcamento.codigo_legado }}?');">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'editar_orcamento' orcamento.id %}">
+                            {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})
+                        </a>
+                        <br>
+                        <small class="text-muted">Criado em: {{ orcamento.criado_em|date:"d/m/Y H:i" }}</small>
+                    </div>
+                    <form action="{% url 'excluir_orcamento' orcamento.id %}" method="post" onsubmit="return confirm('Tem certeza que deseja excluir o orçamento {{ orcamento.codigo_legado }}?');">
                         {% csrf_token %}
-                        <button type="submit" style="color: red;">Excluir</button>
+                        <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
                     </form>
-                    <br>
-                    Criado em: {{ orcamento.criado_em|date:"d/m/Y H:i" }}
                 </li>
             {% endfor %}
         </ul>
     {% else %}
-        <p>Nenhum orçamento encontrado.</p>
+        <div class="alert alert-info" role="alert">
+            Nenhum orçamento encontrado.
+        </div>
     {% endif %}
-</body>
-</html>
+{% endblock %}

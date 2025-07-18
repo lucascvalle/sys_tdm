@@ -1,29 +1,122 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Instâncias de Produtos</title>
-</head>
-<body>
-    <h1>Lista de Instâncias de Produtos</h1>
-    <a href="{% url 'criar_produto_instancia' %}">Criar Nova Instância de Produto</a>
-    <hr>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+{% extends 'base.html' %}
+
+{% block title %}Lista de Instâncias de Produtos - SysOrc{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Lista de Instâncias de Produtos</h1>
+        <div>
+            <a href="{% url 'produtos_home' %}" class="btn btn-secondary me-2">Voltar para Produtos</a>
+        </div>
+    </div>
+
     {% if instancias %}
-        <ul>
-            {% for instancia in instancias %}
-                <li>{{ instancia.codigo }} (Template: {{ instancia.template.nome }}) - Quantidade: {{ instancia.quantidade }}</li>
-            {% endfor %}
-        </ul>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Template</th>
+                        <th>Quantidade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for instancia in instancias %}
+                        <tr>
+                            <td>{{ instancia.codigo }}</td>
+                            <td>{{ instancia.template.nome }}</td>
+                            <td>{{ instancia.quantidade }}</td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#instanceDetailModal" data-instance-id="{{ instancia.id }}">Detalhes</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
-        <p>Nenhuma instância de produto encontrada.</p>
+        <div class="alert alert-info" role="alert">
+            Nenhuma instância de produto encontrada.
+        </div>
     {% endif %}
-</body>
-</html>
+
+    <!-- Modal de Detalhes da Instância -->
+    <div class="modal fade" id="instanceDetailModal" tabindex="-1" aria-labelledby="instanceDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="instanceDetailModalLabel">Detalhes da Instância de Produto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modal-content-placeholder">
+                        <!-- Conteúdo será carregado via AJAX aqui -->
+                        Carregando...
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var instanceDetailModal = document.getElementById('instanceDetailModal');
+        instanceDetailModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Botão que acionou o modal
+            var instanceId = button.getAttribute('data-instance-id');
+            var modalContentPlaceholder = instanceDetailModal.querySelector('#modal-content-placeholder');
+            modalContentPlaceholder.innerHTML = 'Carregando...'; // Resetar conteúdo
+
+            // Fazer requisição AJAX para buscar os detalhes da instância
+            fetch(`/produtos/instancias/${instanceId}/detalhes_json/`)
+                .then(response => response.json())
+                .then(data => {
+                    let htmlContent = `
+                        <h4>Informações da Instância</h4>
+                        <p><strong>Código:</strong> ${data.instancia.codigo}</p>
+                        <p><strong>Template:</strong> ${data.instancia.template_nome}</p>
+                        <p><strong>Quantidade:</strong> ${data.instancia.quantidade}</p>
+                        <h5>Atributos:</h5>
+                        <ul>
+                    `;
+                    data.instancia.atributos.forEach(attr => {
+                        htmlContent += `<li><strong>${attr.nome}:</strong> ${attr.valor}</li>`;
+                    });
+                    htmlContent += `</ul>`;
+
+                    if (data.orcamentos.length > 0) {
+                        htmlContent += `<h4>Orçamentos Relacionados</h4>`;
+                        data.orcamentos.forEach(orc => {
+                            htmlContent += `
+                                <div class="card mb-2">
+                                    <div class="card-body">
+                                        <p><strong>Código Legado:</strong> ${orc.codigo_legado}</p>
+                                        <p><strong>Cliente:</strong> ${orc.nome_cliente}</p>
+                                        <p><strong>Data Solicitação:</strong> ${orc.data_solicitacao}</p>
+                                        <p><strong>Versão:</strong> ${orc.versao}</p>
+                                        <a href="/orcamentos/${orc.id}/editar/" class="btn btn-sm btn-outline-primary">Ver Orçamento</a>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        htmlContent += `<p>Nenhum orçamento relacionado encontrado.</p>`;
+                    }
+
+                    modalContentPlaceholder.innerHTML = htmlContent;
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar detalhes da instância:', error);
+                    modalContentPlaceholder.innerHTML = '<p class="text-danger">Erro ao carregar detalhes.</p>';
+                });
+        });
+    });
+</script>
+{% endblock %}

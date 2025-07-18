@@ -1,25 +1,124 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Template de Produto</title>
-</head>
-<body>
-    <h1>Criar Novo Template de Produto</h1>
-    <a href="{% url 'listar_produtos_template' %}">Voltar para a Lista</a>
-    <hr>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Criar Template de Produto</button>
-    </form>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Criar Template de Produto - SysOrc{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card mt-5">
+                <div class="card-header text-center">
+                    <h2>Criar Novo Template de Produto</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <h3>Atributos do Template</h3>
+                        {{ formset.management_form }}
+                        <div id="attribute-forms-container">
+                            {% for formset_form in formset %}
+                                <div class="card mb-3 p-3 attribute-form-card">
+                                    {% for hidden_field in formset_form.hidden_fields %}
+                                        {{ hidden_field }}
+                                    {% endfor %}
+                                    {% for field in formset_form.visible_fields %}
+                                        <div class="mb-3">
+                                            {{ field.label_tag }}
+                                            {{ field }}
+                                            {% if field.help_text %}
+                                                <div class="form-text">{{ field.help_text }}</div>
+                                            {% endif %}
+                                            {% for error in field.errors %}
+                                                <div class="invalid-feedback d-block">{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endfor %}
+                                    <button type="button" class="btn btn-danger btn-sm remove-attribute-btn">Remover</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <template id="empty-form-template">
+                            <div class="card mb-3 p-3 attribute-form-card">
+                                {% for hidden_field in formset.empty_form.hidden_fields %}
+                                    {{ hidden_field }}
+                                {% endfor %}
+                                {% for field in formset.empty_form.visible_fields %}
+                                    <div class="mb-3">
+                                        {{ field.label_tag }}
+                                        {{ field }}
+                                        {% if field.help_text %}
+                                            <div class="form-text">{{ field.help_text }}</div>
+                                        {% endif %}
+                                        {% for error in field.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </template>
+                        <button type="button" id="add-attribute-btn" class="btn btn-outline-secondary mb-3">Adicionar Atributo</button>
+
+                        <button type="submit" class="btn btn-primary">Criar Template de Produto</button>
+                        <a href="{% url 'listar_produtos_template' %}" class="btn btn-secondary ms-2">Voltar para a Lista</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addAttributeBtn = document.getElementById('add-attribute-btn');
+        const attributeFormsContainer = document.getElementById('attribute-forms-container');
+        const totalFormsInput = document.querySelector('#id_form-TOTAL_FORMS');
+
+        const emptyFormTemplate = document.getElementById('empty-form-template');
+
+        function attachRemoveHandler(formCard) {
+            const removeBtn = formCard.querySelector('.remove-attribute-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    const deleteInput = formCard.querySelector('input[name$="-DELETE"]');
+                    if (deleteInput) {
+                        deleteInput.value = 'on';
+                    }
+                    formCard.style.display = 'none';
+                });
+            }
+        }
+
+        // Attach remove handlers to initial forms
+        attributeFormsContainer.querySelectorAll('.attribute-form-card').forEach(attachRemoveHandler);
+
+        addAttributeBtn.addEventListener('click', function() {
+            const currentForms = parseInt(totalFormsInput.value);
+            const newForm = emptyFormTemplate.content.cloneNode(true);
+
+            // Update IDs and names for the new form
+            const regex = new RegExp('__prefix__', 'g');
+            newForm.innerHTML = newForm.innerHTML.replace(regex, currentForms);
+
+            attributeFormsContainer.appendChild(newForm);
+            totalFormsInput.value = currentForms + 1;
+
+            // Attach remove handler to the newly added form
+            attachRemoveHandler(newForm);
+        });
+    });
+</script>
+{% endblock %}

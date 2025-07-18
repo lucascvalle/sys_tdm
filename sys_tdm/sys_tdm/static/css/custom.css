@@ -1,0 +1,52 @@
+/* custom.css */
+
+/* Cores base */
+:root {
+    --primary-color: #996600;
+    --secondary-color: #FFC000;
+    --text-dark: #000000;
+    --text-light: #FFFFFF;
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--primary-color) !important; /* Fundo da navbar */
+}
+
+.navbar-brand,
+.navbar-nav .nav-link {
+    color: var(--text-light) !important; /* Cor do texto da navbar */
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--secondary-color) !important; /* Cor do texto da navbar ao passar o mouse */
+}
+
+/* Botões */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-light);
+}
+
+.btn-primary:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: var(--text-dark);
+}
+
+.btn-outline-secondary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+}
+
+/* Outros elementos (exemplo) */
+.card-header {
+    background-color: var(--secondary-color);
+    color: var(--text-dark);
+}

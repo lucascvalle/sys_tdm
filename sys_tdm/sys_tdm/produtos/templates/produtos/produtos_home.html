@@ -1,18 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Produtos</title>
-</head>
-<body>
-    <h1>Gerenciar Produtos</h1>
-    <p>Selecione uma das opções abaixo:</p>
-    <ul>
-        <li><a href="/">Voltar para a Home</a></li>
-        <li><a href="{% url 'listar_categorias' %}">Listar Categorias</a></li>
-        <li><a href="{% url 'listar_produtos_template' %}">Listar Templates de Produtos</a></li>
-        
-    </ul>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Produtos - SysOrc{% endblock %}
+
+{% block content %}
+    <div class="jumbotron text-center">
+        <h1 class="display-4">Gerenciar Produtos</h1>
+        <p class="lead">Selecione uma das opções abaixo para gerenciar seus produtos e categorias.</p>
+        <hr class="my-4">
+        <div class="d-grid gap-2 col-6 mx-auto">
+            <a href="{% url 'listar_categorias' %}" class="btn btn-primary btn-lg">Listar Categorias</a>
+            <a href="{% url 'listar_produtos_template' %}" class="btn btn-secondary btn-lg">Listar Templates de Produtos</a>
+            {# Adicionar link para listar instâncias de produtos se houver #}
+            <a href="{% url 'listar_produto_instancias' %}" class="btn btn-info btn-lg">Listar Instâncias de Produtos</a>
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-lg mt-3">Voltar para a Home</a>
+        </div>
+    </div>
+{% endblock %}

@@ -1,4 +1,5 @@
 from django import forms
+from django.forms import inlineformset_factory
 from .models import (
     Categoria, Atributo, ItemMaterial,
     ProdutoTemplate, TemplateAtributo, TemplateComponente, FormulaTemplate,
@@ -54,3 +55,5 @@ class InstanciaComponenteForm(forms.ModelForm):
     class Meta:
         model = InstanciaComponente
         fields = '__all__'
+
+TemplateAtributoFormSet = inlineformset_factory(ProdutoTemplate, TemplateAtributo, fields=('atributo', 'obrigatorio', 'ordem'), extra=1, can_delete=True)

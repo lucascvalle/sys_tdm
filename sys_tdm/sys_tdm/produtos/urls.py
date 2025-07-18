@@ -7,6 +7,9 @@ urlpatterns = [
     path('categorias/criar/', views.criar_categoria, name='criar_categoria'),
     path('templates/', views.listar_produtos_template, name='listar_produtos_template'),
     path('templates/criar/', views.criar_produto_template, name='criar_produto_template'),
+    path('instancias/', views.listar_produto_instancias, name='listar_produto_instancias'),
+    path('instancias/<int:instancia_id>/detalhes_json/', views.get_instancia_detalhes_json, name='get_instancia_detalhes_json'),
+    
     
     # TODO: Adicionar URLs para outros modelos e funcionalidades
 ]

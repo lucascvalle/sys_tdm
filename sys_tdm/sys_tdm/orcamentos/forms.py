@@ -17,6 +17,11 @@ class OrcamentoForm(forms.ModelForm):
             'data_solicitacao': forms.DateInput(attrs={'type': 'date'}),
         }
 
+class CriarOrcamentoForm(forms.ModelForm):
+    class Meta:
+        model = Orcamento
+        fields = ['codigo_legado']
+
 class ItemOrcamentoForm(forms.ModelForm):
     class Meta:
         model = ItemOrcamento

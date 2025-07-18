@@ -1,26 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Orçamento</title>
-</head>
-<body>
-    <h1>Criar Novo Orçamento</h1>
-    <a href="{% url 'listar_orcamentos' %}">Voltar para a Lista</a>
-    <hr>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    <form method="post">
-        {% csrf_token %}
-        <label for="codigo_legado">Código Legado:</label><br>
-        <input type="text" id="codigo_legado" name="codigo_legado" required><br><br>
-        <button type="submit">Criar Orçamento</button>
-    </form>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Criar Orçamento - SysOrc{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card mt-5">
+                <div class="card-header text-center">
+                    <h2>Criar Novo Orçamento</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {# Renderizar campos do formulário Django #}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Criar Orçamento</button>
+                        <a href="{% url 'listar_orcamentos' %}" class="btn btn-secondary ms-2">Voltar para a Lista</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

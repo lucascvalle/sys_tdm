@@ -9,5 +9,6 @@ urlpatterns = [
     path('<int:orcamento_id>/item/<int:item_id>/atualizar/', views.atualizar_item_orcamento, name='atualizar_item_orcamento'),
     path('<int:orcamento_id>/exportar/excel/', views.exportar_orcamento_excel, name='exportar_orcamento_excel'),
     path('<int:orcamento_id>/excluir/', views.excluir_orcamento, name='excluir_orcamento'),
+    path('<int:orcamento_id>/versionar/', views.versionar_orcamento, name='versionar_orcamento'),
     # TODO: Adicionar URLs para salvar_nova_versao_orcamento, etc.
 ]

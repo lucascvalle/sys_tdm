@@ -1,0 +1,5 @@
+feat: Fix `add_class` filter and item update in budget editing
+
+- Added `add_class` custom filter to `orcamentos_extras.py` to allow Bootstrap classes to be applied to form fields in templates.
+- Loaded `orcamentos_extras` templatetags in `editar_orcamento.html`.
+- Modified `atualizar_item_orcamento` in `views.py` to correctly handle updates for quantity and unit price fields independently, preventing `NoneType` errors when only one field is submitted.
