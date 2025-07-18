@@ -1,7 +1,5 @@
 # sys_orc
 
-Este é o repositório para o sistema de gerenciamento de orçamentos `sys_tdm`.
-
 ## Descrição do Projeto
 
 O `sys_orc` é um sistema desenvolvido para gerenciar orçamentos, permitindo a criação, edição e exportação de orçamentos para o formato Excel. Ele lida com a complexidade de diferentes tipos de produtos (Portas, Armários, Pavimentos) e suas respectivas medidas e formatações.
