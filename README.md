@@ -4,23 +4,44 @@ Este é o repositório para o sistema de gerenciamento de orçamentos `SysOrc`.
 
 ## Descrição do Projeto
 
-O `SysOrc` é um sistema desenvolvido para gerenciar o ciclo completo de orçamentos. Ele permite a criação, edição e exportação de orçamentos para o formato Excel, focando na gestão eficiente dos itens de orçamento e seus cálculos.
+O SysOrc é um sistema web integrado desenvolvido para otimizar a gestão de processos de orçamentação, catalogação de produtos com configurações avançadas e rastreamento detalhado de consumos de materiais e tempo de trabalho. Construído com Django, o sistema visa proporcionar uma ferramenta robusta para empresas que necessitam de controle preciso sobre seus custos de produção e recursos.
 
 ## Funcionalidades
 
-- Criação e edição de orçamentos com adição/remoção dinâmica de itens.
-- Cálculos automáticos de valores por item e total do orçamento.
-- Persistência e edição de orçamentos e seus itens.
-- Geração de documentos de orçamento para arquivos Excel (`.xlsx`).
-- Estilização da interface do usuário com as cores da marca.
-- Integração com o painel administrativo do Django para gerenciamento de templates de produtos.
+### Módulo de Orçamentos
+- **Criação e Edição de Orçamentos**: Gerencie orçamentos com adição e remoção dinâmica de itens.
+- **Cálculos Automáticos**: Valores por item e total do orçamento calculados em tempo real.
+- **Versionamento de Orçamentos**: Crie novas versões de orçamentos existentes para rastreamento de revisões.
+- **Exportação para Excel**: Gere documentos de orçamento detalhados e fichas de produção em formato `.xlsx`.
+- **Gestão de Preços e Margens**: Ferramentas para definir preços unitários com base em custos de fabricação e margens de negócio.
+- **Arquitetura de Configuração de Produto**: Suporte a variações complexas de produtos através de configurações e componentes.
+
+### Módulo de Produtos
+- **Catálogo de Produtos e Componentes**: Gerencie categorias, atributos, templates de produtos e componentes.
+- **Configurações de Produto**: Defina configurações específicas para produtos, permitindo variações de componentes e atributos.
+- **Instâncias de Produto**: Crie instâncias de produtos com base em templates e configurações, com atributos e componentes calculados dinamicamente.
+
+### Módulo de Consumos
+- **Registro de Consumo de Material**: Rastreie o consumo de matéria-prima e componentes por obra.
+- **Registro de Sessões de Trabalho**: Monitore o uso de máquinas e o tempo de trabalho de operadores em postos específicos.
+- **Gestão de Postos de Trabalho e Operadores**: Cadastre e gerencie os recursos humanos e máquinas da fábrica.
+- **Relatórios de Consumo**: Visualize relatórios agregados de consumo de material e utilização de máquinas, com opção de exportação para Excel.
+
+## Tecnologias Utilizadas
+
+- **Backend**: Python, Django
+- **Banco de Dados**: PostgreSQL (configurado via Docker)
+- **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5, Crispy Forms
+- **Containerização**: Docker, Docker Compose
+- **Manipulação de Excel**: OpenPyXL
 
 ## Configuração do Ambiente
 
-Este projeto utiliza Docker para facilitar a configuração do ambiente de desenvolvimento.
+Este projeto utiliza Docker para facilitar a configuração do ambiente de desenvolvimento e produção.
 
 1.  **Pré-requisitos:**
     *   Docker Desktop (ou Docker Engine e Docker Compose) instalado.
+    *   Git instalado.
 
 2.  **Clonar o Repositório:**
     ```bash
@@ -30,10 +51,11 @@ Este projeto utiliza Docker para facilitar a configuração do ambiente de desen
 
 3.  **Construir e Iniciar os Contêineres:**
     ```bash
-    docker-compose up --build
+    docker-compose up --build -d
     ```
+    O `-d` executa os contêineres em segundo plano.
 
-4.  **Executar Migrações (Primeira Vez):**
+4.  **Executar Migrações do Banco de Dados:**
     Após os contêineres estarem rodando, você precisará executar as migrações do Django para configurar o banco de dados:
     ```bash
     docker-compose exec web python sys_tdm/manage.py migrate
@@ -43,15 +65,22 @@ Este projeto utiliza Docker para facilitar a configuração do ambiente de desen
     ```bash
     docker-compose exec web python sys_tdm/manage.py createsuperuser
     ```
+    Siga as instruções no terminal para criar seu usuário administrador.
 
 ## Uso
 
 Após a configuração, o sistema estará acessível em `http://localhost:8000` (ou a porta configurada no seu `docker-compose.yml`).
 
-- **Acessar o Admin:** `http://localhost:8000/admin`
-- **Listar Orçamentos:** `http://localhost:8000/orcamentos/`
-- **Exportar Orçamento:** Na página de edição de um orçamento, haverá um botão para exportar para Excel.
+-   **Página Inicial**: `http://localhost:8000`
+-   **Acessar o Admin**: `http://localhost:8000/admin`
+-   **Módulo de Orçamentos**: `http://localhost:8000/orcamentos/`
+-   **Módulo de Produtos**: `http://localhost:8000/produtos/`
+-   **Módulo de Consumos**: `http://localhost:8000/consumos/`
 
 ## Contribuição
 
-Sinta-se à vontade para contribuir com o projeto. Por favor, siga as boas práticas de Git e abra Pull Requests para novas funcionalidades ou correções de bugs.
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull requests.
+
+## Licença
+
+Este projeto está licenciado sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
