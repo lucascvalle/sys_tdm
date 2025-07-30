@@ -1,0 +1,27 @@
+feat: Comprehensive System Overhaul - Budgeting Components & Consumption Tracking
+
+This commit introduces a major overhaul of the system, integrating advanced budgeting component management and a new consumption tracking module.
+
+Key Enhancements:
+
+Budgeting System (as per 0.1.1.txt and 0.1.2.txt):
+- Implemented a flexible Product Configuration architecture, allowing multiple component and finish variations for base product templates.
+- Enhanced item addition flow: Category -> Template -> Configuration -> Attributes.
+- Developed a "Configuration Manager" for creating/editing product configurations, including component selection and quantity definition.
+- Introduced a "Margin Manager" to define item unit prices based on raw material, component, finish, labor, and assembly costs.
+- Updated Excel export for budgets to reflect the new product configuration hierarchy and production sheet generation.
+- Refactored product models to support Component, ProductConfiguration, and InstanceComponent relationships.
+
+Consumption Tracking System:
+- Added a new "Consumos" (Consumption) application to manage material consumption and work sessions.
+- Implemented models for Work Sessions (SessaoTrabalho), Workstations (PostoTrabalho), Operators (Operador), and Material Consumption Records (ItemConsumido).
+- Developed views and templates for CRUD operations on consumption data.
+- Integrated reporting functionalities for Material Consumption and Machine Utilization.
+- Enabled Excel export for consumption reports, including detailed descriptions for consumed items.
+- Improved UI for the consumption home page, separating management and reporting sections.
+
+General Improvements:
+- Updated `.gitignore` to properly exclude development artifacts and temporary files, ensuring a cleaner repository.
+- Refactored `__str__` methods in several models for better representation and error handling.
+
+This release significantly expands the system's capabilities, moving towards a more comprehensive management solution for production and resource tracking.
