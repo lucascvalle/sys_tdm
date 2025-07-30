@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Relatório de Consumo de Material{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Relatório de Consumo de Material</h1>
+    <p class="lead">Consumo agregado de materiais por componente.</p>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Filtros</h3>
+        </div>
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                {{ filter_form|crispy }}
+                <button type="submit" class="btn btn-primary mt-2">Aplicar Filtros</button>
+                <a href="{% url 'consumos:material_consumption_report' %}" class="btn btn-secondary mt-2">Limpar Filtros</a>
+                <a href="{% url 'consumos:exportar_material_consumption_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success mt-2">Exportar para Excel</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Quantidade Total</th>
+                        <th>Unidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consumo in consumos_agregados %}
+                    <tr>
+                        <td>{{ consumo.componente__nome }}</td>
+                        <td>{{ consumo.total_quantidade|floatformat:2 }}</td>
+                        <td>{{ consumo.unidade }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">Nenhum consumo de material encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'consumos:home' %}" class="btn btn-secondary">Voltar para o Dashboard de Consumos</a>
+    </div>
+</div>
+{% endblock %}

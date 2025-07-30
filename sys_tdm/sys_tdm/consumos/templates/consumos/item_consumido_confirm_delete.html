@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Confirmar Exclusão</h2>
+        </div>
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir o consumo de <strong>{{ object.quantidade }} {{ object.unidade }} de {{ object.item }}</strong> da ficha <strong>{{ object.ficha_obra.ref_obra }}</strong>?</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Sim, excluir</button>
+                <a href="{% url 'consumos:ficha_consumo_detail' object.ficha_obra.pk %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

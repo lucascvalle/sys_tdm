@@ -16,20 +16,16 @@
                 <thead>
                     <tr>
                         <th>Código</th>
-                        <th>Template</th>
+                        <th>Configuração</th>
                         <th>Quantidade</th>
-                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for instancia in instancias %}
                         <tr>
                             <td>{{ instancia.codigo }}</td>
-                            <td>{{ instancia.template.nome }}</td>
+                            <td>{{ instancia.configuracao.nome }}</td>
                             <td>{{ instancia.quantidade }}</td>
-                            <td>
-                                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#instanceDetailModal" data-instance-id="{{ instancia.id }}">Detalhes</button>
-                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -40,83 +36,3 @@
             Nenhuma instância de produto encontrada.
         </div>
     {% endif %}
-
-    <!-- Modal de Detalhes da Instância -->
-    <div class="modal fade" id="instanceDetailModal" tabindex="-1" aria-labelledby="instanceDetailModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="instanceDetailModalLabel">Detalhes da Instância de Produto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="modal-content-placeholder">
-                        <!-- Conteúdo será carregado via AJAX aqui -->
-                        Carregando...
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var instanceDetailModal = document.getElementById('instanceDetailModal');
-        instanceDetailModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget; // Botão que acionou o modal
-            var instanceId = button.getAttribute('data-instance-id');
-            var modalContentPlaceholder = instanceDetailModal.querySelector('#modal-content-placeholder');
-            modalContentPlaceholder.innerHTML = 'Carregando...'; // Resetar conteúdo
-
-            // Fazer requisição AJAX para buscar os detalhes da instância
-            fetch(`/produtos/instancias/${instanceId}/detalhes_json/`)
-                .then(response => response.json())
-                .then(data => {
-                    let htmlContent = `
-                        <h4>Informações da Instância</h4>
-                        <p><strong>Código:</strong> ${data.instancia.codigo}</p>
-                        <p><strong>Template:</strong> ${data.instancia.template_nome}</p>
-                        <p><strong>Quantidade:</strong> ${data.instancia.quantidade}</p>
-                        <h5>Atributos:</h5>
-                        <ul>
-                    `;
-                    data.instancia.atributos.forEach(attr => {
-                        htmlContent += `<li><strong>${attr.nome}:</strong> ${attr.valor}</li>`;
-                    });
-                    htmlContent += `</ul>`;
-
-                    if (data.orcamentos.length > 0) {
-                        htmlContent += `<h4>Orçamentos Relacionados</h4>`;
-                        data.orcamentos.forEach(orc => {
-                            htmlContent += `
-                                <div class="card mb-2">
-                                    <div class="card-body">
-                                        <p><strong>Código Legado:</strong> ${orc.codigo_legado}</p>
-                                        <p><strong>Cliente:</strong> ${orc.nome_cliente}</p>
-                                        <p><strong>Data Solicitação:</strong> ${orc.data_solicitacao}</p>
-                                        <p><strong>Versão:</strong> ${orc.versao}</p>
-                                        <a href="/orcamentos/${orc.id}/editar/" class="btn btn-sm btn-outline-primary">Ver Orçamento</a>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    } else {
-                        htmlContent += `<p>Nenhum orçamento relacionado encontrado.</p>`;
-                    }
-
-                    modalContentPlaceholder.innerHTML = htmlContent;
-                })
-                .catch(error => {
-                    console.error('Erro ao buscar detalhes da instância:', error);
-                    modalContentPlaceholder.innerHTML = '<p class="text-danger">Erro ao carregar detalhes.</p>';
-                });
-        });
-    });
-</script>
-{% endblock %}

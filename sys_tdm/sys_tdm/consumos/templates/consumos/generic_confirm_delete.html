@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Confirmar Exclusão</h2>
+        </div>
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir <strong>{{ object }}</strong>?</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Sim, excluir</button>
+                <a href="{{ request.META.HTTP_REFERER }}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

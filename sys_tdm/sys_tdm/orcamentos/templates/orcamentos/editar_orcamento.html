@@ -3,201 +3,734 @@
 
 {% block title %}Editar Orçamento {{ orcamento.codigo_legado }} - SysOrc{% endblock %}
 
+{% block extra_css %}
+<style>
+    .modal {
+        display: none; 
+        position: fixed; 
+        z-index: 1050; 
+        left: 0;
+        top: 0;
+        width: 100%; 
+        height: 100%; 
+        overflow: auto; 
+        background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 900px;
+        border-radius: 0.3rem;
+    }
+    .close-button {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    .close-button:hover,
+    .close-button:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .panels-container {
+        display: flex;
+        justify-content: space-between;
+    }
+    .panel {
+        width: 48%;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 0.25rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Editar Orçamento: {{ orcamento.codigo_legado }} (Versão: {{ orcamento.versao }})</h1>
         <div>
             <a href="{% url 'listar_orcamentos' %}" class="btn btn-secondary me-2">Voltar para a Lista de Orçamentos</a>
             <a href="{% url 'exportar_orcamento_excel' orcamento.id %}" class="btn btn-success me-2">Exportar para Excel</a>
+            <a href="{% url 'exportar_ficha_producao' orcamento.id %}" class="btn btn-primary me-2">Imprimir Ficha de Produção</a>
             <a href="{% url 'versionar_orcamento' orcamento.id %}" class="btn btn-info">Criar Nova Versão</a>
         </div>
     </div>
 
     <hr>
 
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2>Detalhes do Orçamento</h2>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="update_orcamento" value="1">
-                {% for field in orcamento_form %}
-                    <div class="mb-3">
-                        {{ field.label_tag }}
-                        {{ field|add_class:"form-control" }}
-                        {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
-                        {% endif %}
-                        {% for error in field.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-                <button type="submit" class="btn btn-primary">Salvar Alterações no Orçamento</button>
-            </form>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2>Itens do Orçamento</h2>
-        </div>
-        <div class="card-body">
-            {% if itens_agrupados_por_categoria %}
-                {% for categoria_nome, categoria_data in itens_agrupados_por_categoria.items %}
-                    <h3 class="mt-4 mb-3">{{ forloop.counter }} - {{ categoria_nome }} | Quantidade: {{ categoria_data.quantidade_categoria }} | Total : {{ categoria_data.total_categoria|floatformat:2 }} € </h3>
-                    <div class="table-responsive mb-4">
-                        <table class="table table-striped table-hover table-sm">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Item</th>
-                                    <th>Quantidade</th>
-                                    <th>Preço Unitário</th>
-                                    <th>Total</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for template_nome, template_data in categoria_data.templates.items %}
-                                    {% for item in template_data.instancias %}
-                                        <tr>
-                                            <td>{{ forloop.parentloop.parentloop.counter }}.{{ forloop.parentloop.counter }}.{{ forloop.counter }}</td>
-                                            <td>{{ item.display_name }}</td>
-                                            <td>
-                                                <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline-flex align-items-center">
-                                                    {% csrf_token %}
-                                                    <input type="number" name="quantidade" value="{{ item.quantidade }}" min="1" class="form-control form-control-sm me-2" style="width: 80px;">
-                                                    <button type="submit" class="btn btn-sm btn-success">Atualizar</button>
-                                                </form>
-                                            </td>
-                                            <td>
-                                                <form action="{% url 'atualizar_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline-flex align-items-center">
-                                                    {% csrf_token %}
-                                                    <input type="number" name="preco_unitario" value="{{ item.preco_unitario|floatformat:2 }}" step="0.01" class="form-control form-control-sm me-2" style="width: 100px;">
-                                                    <button type="submit" class="btn btn-sm btn-success">Atualizar</button>
-                                                </form>
-                                            </td>
-                                            <td>{{ item.total|floatformat:2 }} €</td>
-                                            <td>
-                                                <form action="{% url 'remover_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este item?');">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-danger btn-sm">Remover</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
+    <div class="row">
+        <!-- Canto Superior Esquerdo: Detalhes do Orçamento Compactos -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Detalhes do Orçamento</h2>
+                </div>
+                <div class="card-body p-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="update_orcamento" value="1">
+                        {% for field in orcamento_form %}
+                            <div class="mb-2">
+                                <small>{{ field.label_tag }}</small>
+                                {{ field|add_class:"form-control form-control-sm" }}
+                                {% if field.help_text %}
+                                    <div class="form-text"><small>{{ field.help_text }}</small></div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block"><small>{{ error }}</small></div>
                                 {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% endfor %}
-                <h3 class="text-end mt-4">Total Geral do Or��amento: {{ total_geral_orcamento|floatformat:2 }} €</h3>
-            {% else %}
-                <div class="alert alert-info" role="alert">
-                    Nenhum item adicionado a este orçamento ainda.
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary btn-sm mt-2">Salvar Detalhes</button>
+                    </form>
                 </div>
-            {% endif %}
+            </div>
+        </div>
+
+        <!-- Topo (largura total): Lista Fixa (Scroll) de Itens do Orçamento -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2>Itens do Orçamento</h2>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;"> {# Adicionado scroll #}
+                    <table id="itens-orcamento-table" class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Código Manual</th>
+                                <th>Descrição do Item</th>
+                                <th>Quantidade</th>
+                                <th>Preço Unitário</th>
+                                <th>Total</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in itens_orcamento %}
+                                <tr>
+                                    <td>{{ item.codigo_item_manual|default:"-" }}</td>
+                                    <td>
+                                        {{ item|format_item_display_name }}
+                                    </td>
+                                    <td>{{ item.quantidade }}</td>
+                                    <td id="item-preco-{{ item.id }}">{{ item.preco_unitario|floatformat:2 }} €</td>
+                                    <td id="item-total-{{ item.id }}">{{ item.total|floatformat:2 }} €</td>
+                                    <td>
+                                        <form action="{% url 'remover_item_orcamento' orcamento.id item.id %}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este item?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+                                        </form>
+                                        {% if item.instancia %}
+                                            <button type="button" class="btn btn-info btn-sm mt-1" onclick="loadAndDisplayPriceManagement({{ item.id }});">Gerir Preço</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="no-items-message" class="alert alert-info" role="alert" {% if itens_orcamento %}style="display: none;"{% endif %}>
+                        Nenhum item adicionado a este orçamento ainda.
+                    </div>
+                    <h3 class="text-end mt-4">Total Geral do Orçamento: <span id="total-geral">{{ total_geral_orcamento|floatformat:2 }}</span> €</h3>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="row">
+        <!-- Metade Esquerda Inferior -->
+        <div class="col-md-6">
+            <!-- Tela de Adição de Itens -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Adicionar Novo Item</h3>
+                </div>
+                <div class="card-body">
+                    <form id="add-item-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="add_item" value="1">
+
+                        <div class="mb-3">
+                            <label for="categoria_select" class="form-label">Categoria (Artigo):</label>
+                            <select name="categoria_select" id="categoria_select" class="form-select">
+                                <option value="">Selecione uma categoria</option>
+                                {% for categoria in todas_categorias %}
+                                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="template_select" class="form-label">Template do Produto:</label>
+                            <select name="template_select" id="template_select" class="form-select" disabled>
+                                <option value="">Selecione uma categoria primeiro</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="configuracao" class="form-label">Configuração do Produto:</label>
+                            <select name="configuracao" id="configuracao" class="form-select" disabled>
+                                <option value="">Selecione um template primeiro</option>
+                            </select>
+                        </div>
+
+                        <div id="instance-attributes-container" class="mb-3">
+                            <!-- Atributos da instância serão inseridos aqui via JS -->
+                        </div>
+
+                        <div id="configuration-components-manager" class="mb-3">
+                            <!-- Gerenciador de Componentes da Configuração será inserido aqui via JS -->
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="quantidade" class="form-label">Quantidade:</label>
+                            <input type="number" name="quantidade" id="quantidade" value="1" min="1" class="form-control">
+                        </div>
+
+                        <input type="hidden" name="preco_unitario" id="hidden_preco_unitario">
+
+                        <div class="mb-3">
+                            <label for="margem_negocio_add_item" class="form-label">Margem de Negócio (%):</label>
+                            <input type="number" name="margem_negocio" id="margem_negocio_add_item" class="form-control" step="0.01" value="0.00">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Adicionar Item</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção para Gerenciamento de Preço (substitui o modal) -->
+    <div id="price-management-section" class="card mb-4" style="display: none;">
         <div class="card-header">
-            <h3>Adicionar Novo Item</h3>
+            <h3 id="price-management-title">Gerir Preço do Item</h3>
         </div>
         <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="add_item" value="1">
-
-                <div class="mb-3">
-                    <label for="categoria" class="form-label">Categoria:</label>
-                    <select name="categoria" id="categoria" class="form-select">
-                        <option value="">Selecione uma categoria</option>
-                        {% for categoria in categorias %}
-                            <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
-                        {% endfor %}
-                    </select>
+            <div class="panels-container d-flex justify-content-between">
+                <!-- Painel Esquerdo: Gerenciador de Componentes -->
+                <div class="panel w-50 me-2">
+                    <h4>Atributos da Instância</h4>
+                    <div id="instance-attributes-display" class="mb-3"></div>
+                    
+                    <h4>Componentes (Quantidades)</h4>
+                    <ul id="componentesQuantityList" class="list-group"></ul>
+                    <hr>
+                    <strong>Custo Total de Fabrico: € <span id="custoFabricoTotal">0.00</span></strong>
+                    <button id="saveComponentDetailsBtn" class="btn btn-success btn-sm mt-2">Salvar Componentes</button>
                 </div>
 
-                <div class="mb-3">
-                    <label for="template" class="form-label">Template do Produto:</label>
-                    <select name="template" id="template" class="form-select">
-                        <option value="">Selecione uma categoria primeiro</option>
-                    </select>
+                <!-- Painel Direito: Gerenciador de Margem -->
+                <div class="panel w-50 ms-2">
+                    <h4>Componentes (Preço Unitário)</h4>
+                    <ul id="componentesPriceList" class="list-group"></ul>
+                    <hr>
+                    <h4>Margem e Preço Final</h4>
+                    <div class="mb-3">
+                        <label>Custo de Fabrico:</label>
+                        <input type="text" id="custoFabricoInput" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="margemNegocioInput">Margem de Negócio (%):</label>
+                        <input type="number" id="margemNegocioInput" class="form-control" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label>Preço Unitário Final:</label>
+                        <input type="text" id="precoUnitarioFinalInput" class="form-control" readonly>
+                    </div>
+                    <button id="salvarPrecoBtn" class="btn btn-primary">Salvar Alterações</button>
                 </div>
-
-                <div id="atributos-container" class="mb-3">
-                    <!-- Atributos dinâmicos serão inseridos aqui -->
-                </div>
-
-                <div class="mb-3">
-                    <label for="quantidade" class="form-label">Quantidade:</label>
-                    <input type="number" name="quantidade" id="quantidade" value="1" min="1" class="form-control">
-                </div>
-
-                <div class="mb-3">
-                    <label for="preco_unitario" class="form-label">Preço Unitário:</label>
-                    <input type="number" name="preco_unitario" id="preco_unitario" step="0.01" value="0.00" class="form-control">
-                </div>
-
-                <button type="submit" class="btn btn-primary">Adicionar Item</button>
-            </form>
+            </div>
         </div>
     </div>
 
-    <script>
-        document.getElementById('categoria').addEventListener('change', function() {
-            const categoriaId = this.value;
-            const templateSelect = document.getElementById('template');
-            templateSelect.innerHTML = '<option value="">Carregando...</option>';
+{% endblock content %}
 
-            if (categoriaId) {
-                fetch(`/api/produtos/categoria/${categoriaId}/templates/`)
-                    .then(response => response.json())
-                    .then(data => {
-                        templateSelect.innerHTML = '<option value="">Selecione um template</option>';
-                        data.forEach(template => {
-                            const option = document.createElement('option');
-                            option.value = template.id;
-                            option.textContent = template.nome;
-                            templateSelect.appendChild(option);
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Variáveis e Elementos ---
+    const addItemForm = document.getElementById('add-item-form');
+    const categoriaSelect = document.getElementById('categoria_select');
+    const templateSelect = document.getElementById('template_select');
+    const configuracaoSelect = document.getElementById('configuracao');
+    const instanceAttributesContainer = document.getElementById('instance-attributes-container');
+    const priceManagementSection = document.getElementById('price-management-section');
+    const componentesList = document.getElementById('componentesList');
+    const componentesQuantityList = document.getElementById('componentesQuantityList');
+    const componentesPriceList = document.getElementById('componentesPriceList');
+    const custoFabricoTotalSpan = document.getElementById('custoFabricoTotal');
+    const custoFabricoInput = document.getElementById('custoFabricoInput');
+    const margemNegocioInput = document.getElementById('margemNegocioInput');
+    const precoUnitarioFinalInput = document.getElementById('precoUnitarioFinalInput');
+    const salvarPrecoBtn = document.getElementById('salvarPrecoBtn');
+    window.priceManagementSection = document.getElementById('price-management-section'); // Make it global
+    let currentManagedItemId = null; // ID do item que está sendo gerenciado
+
+    // --- Funções de Utilidade ---
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function calcularPrecoFinal() {
+        const custo = parseFloat(custoFabricoInput.value);
+        const margem = parseFloat(margemNegocioInput.value);
+
+        if (isNaN(custo) || isNaN(margem)) return;
+
+        let precoFinal = custo;
+        if (margem > 0 && margem < 100) {
+            precoFinal = custo / (1 - (margem / 100));
+        } else if (margem >= 100) {
+            precoFinal = custo; 
+        }
+        precoUnitarioFinalInput.value = precoFinal.toFixed(2);
+    }
+
+    // --- Event Listeners para Dropdowns de Adição de Item ---
+    if(categoriaSelect) {
+        categoriaSelect.addEventListener('change', function() {
+            fetchTemplates(this.value);
+        });
+    }
+
+    if(templateSelect) {
+        templateSelect.addEventListener('change', function() {
+            fetchConfigurations(this.value);
+        });
+    }
+    
+    if(configuracaoSelect) {
+        configuracaoSelect.addEventListener('change', function() {
+            fetchAttributesAndComponents(this.value);
+        });
+    }
+
+    // --- Funções de Fetch para Dropdowns ---
+    async function fetchTemplates(categoryId) {
+        templateSelect.innerHTML = '<option value="">Carregando...</option>';
+        templateSelect.disabled = true;
+        configuracaoSelect.innerHTML = '<option value="">Selecione um template primeiro</option>';
+        configuracaoSelect.disabled = true;
+        instanceAttributesContainer.innerHTML = ''; // Limpa atributos ao mudar categoria
+
+        if (!categoryId) {
+            templateSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/orcamentos/api/categoria/${categoryId}/templates/`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const templates = await response.json();
+
+            templateSelect.innerHTML = '<option value="">Selecione um template</option>';
+            templates.forEach(tpl => {
+                const option = document.createElement('option');
+                option.value = tpl.id;
+                option.textContent = tpl.nome;
+                templateSelect.appendChild(option);
+            });
+            templateSelect.disabled = false;
+        } catch (error) {
+            console.error('Erro ao buscar templates:', error);
+            templateSelect.innerHTML = '<option value="">Erro ao carregar templates.</option>';
+        }
+    }
+
+    async function fetchConfigurations(templateId) {
+        configuracaoSelect.innerHTML = '<option value="">Carregando...</option>';
+        configuracaoSelect.disabled = true;
+        instanceAttributesContainer.innerHTML = ''; // Limpa atributos ao mudar template
+
+        if (!templateId) {
+            configuracaoSelect.innerHTML = '<option value="">Selecione um template primeiro</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/orcamentos/api/template/${templateId}/configuracoes/`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const configuracoes = await response.json();
+
+            configuracaoSelect.innerHTML = '<option value="">Selecione uma configuração</option>';
+            configuracoes.forEach(cfg => {
+                const option = document.createElement('option');
+                option.value = cfg.id;
+                option.textContent = cfg.nome;
+                configuracaoSelect.appendChild(option);
+            });
+            configuracaoSelect.disabled = false;
+        } catch (error) {
+            console.error('Erro ao buscar configurações:', error);
+            configuracaoSelect.innerHTML = '<option value="">Erro ao carregar configurações.</option>';
+        }
+    }
+
+    async function fetchAttributesAndComponents(configuracaoId) {
+        instanceAttributesContainer.innerHTML = ''; // Limpa atributos anteriores
+
+        if (!configuracaoId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/orcamentos/api/configuracao/${configuracaoId}/atributos/`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const atributos = await response.json();
+
+            atributos.forEach(attr => {
+                const div = document.createElement('div');
+                div.classList.add('mb-3');
+                const label = document.createElement('label');
+                label.for = `atributo_${attr.id}`;
+                label.classList.add('form-label');
+                label.textContent = attr.nome;
+                const input = document.createElement('input');
+                input.type = attr.tipo === 'num' ? 'number' : 'text';
+                input.name = `atributo_${attr.id}`;
+                input.id = `atributo_${attr.id}`;
+                input.classList.add('form-control');
+                div.appendChild(label);
+                div.appendChild(input);
+                instanceAttributesContainer.appendChild(div);
+            });
+
+            // TODO: Adicionar lógica para buscar e exibir componentes da configuração aqui, se necessário
+            // Isso será feito quando o item for adicionado e o gerenciador de preço for exibido.
+
+        } catch (error) {
+            console.error('Erro ao buscar atributos da configuração:', error);
+            instanceAttributesContainer.innerHTML = '<div class="alert alert-danger">Erro ao carregar atributos.</div>';
+        }
+    }
+
+    // --- Submissão AJAX do Formulário de Adição de Item ---
+    if (addItemForm) {
+        addItemForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Previne a submissão padrão do formulário
+
+            const formData = new FormData(addItemForm);
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+
+            // Adiciona o cabeçalho X-Requested-With para indicar que é uma requisição AJAX
+            try {
+                const response = await fetch(addItemForm.action || window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest' // Indica requisição AJAX
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    if (result.status === 'success') {
+                        // Item adicionado com sucesso, agora gerenciar o preço
+                        currentManagedItemId = result.item_id;
+                        await loadAndDisplayPriceManagement(currentManagedItemId);
+                        window.priceManagementSection.style.display = 'block'; // Mostra a seção de gerenciamento
+                        alert(result.message); // Exibe a mensagem de sucesso
+                        console.log('DEBUG: Item added successfully. Result:', result); // New log
+                        
+                        // Atualiza a tabela de itens dinamicamente
+                        const itemTableBody = document.querySelector('#itens-orcamento-table tbody');
+                        console.log('DEBUG: itemTableBody element:', itemTableBody); // New log
+                        if (itemTableBody) {
+                            const itemRowResponse = await fetch(`/orcamentos/api/item/${result.item_id}/row-html/`);
+                            const itemRowHtml = await itemRowResponse.text();
+                            console.log('DEBUG: itemRowHtml received:', itemRowHtml);
+                            itemTableBody.insertAdjacentHTML('beforeend', itemRowHtml);
+                            console.log('DEBUG: Item row added to table.');
+                            // Esconder a mensagem "Nenhum item" se houver itens
+                            const noItemsMessage = document.getElementById('no-items-message');
+                            if (noItemsMessage) {
+                                noItemsMessage.style.display = 'none';
+                            }
+                        }
+
+                        // Recalcula o total geral
+                        let totalGeral = 0;
+                        document.querySelectorAll('td[id^="item-total-"]').forEach(td => {
+                            totalGeral += parseFloat(td.textContent.replace(' €', ''));
                         });
-                    });
+                        document.getElementById('total-geral').textContent = totalGeral.toFixed(2);
+                        console.log('DEBUG: Total general recalculated.'); // New log
+
+                        // Limpa o formulário de adição de item
+                        addItemForm.reset();
+                        templateSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+                        templateSelect.disabled = true;
+                        configuracaoSelect.innerHTML = '<option value="">Selecione um template primeiro</option>';
+                        configuracaoSelect.disabled = true;
+                        instanceAttributesContainer.innerHTML = '';
+                        console.log('DEBUG: Add item form reset.'); // New log
+
+                    } else {
+                        console.error('ERROR: Backend reported error:', result.message); // New log
+                        alert('Erro: ' + result.message);
+                    }
+                } else {
+                    console.error('ERROR: Network request failed. Response:', response); // New log
+                    alert('Erro na requisição: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar item:', error);
+                alert('Ocorreu um erro ao adicionar o item. Verifique o console para mais detalhes.');
+            }
+        });
+    }
+
+    // --- Funções para Gerenciamento de Preço (agora na página) ---
+    window.loadAndDisplayPriceManagement = async function(itemId) {
+        currentManagedItemId = itemId; // Set the global variable here
+        window.priceManagementSection.style.display = 'block'; // Show the section
+        console.log('DEBUG: loadAndDisplayPriceManagement called with itemId:', itemId); // New log
+        try {
+            const itemDetailsPromise = fetch(`/orcamentos/api/item/${itemId}/`).then(res => res.json());
+            const componentesPromise = fetch(`/orcamentos/api/item/${itemId}/componentes/`).then(res => res.json());
+
+            const [item, componentes] = await Promise.all([itemDetailsPromise, componentesPromise]);
+
+            console.log("DEBUG: Item details:", item);
+            console.log("DEBUG: Componentes:", componentes);
+
+            // Exibir Atributos da Instância
+            const instanceAttributesDisplay = document.getElementById('instance-attributes-display');
+            instanceAttributesDisplay.innerHTML = '';
+            if (item.instancia_atributos && item.instancia_atributos.length > 0) {
+                item.instancia_atributos.forEach(attr => {
+                    const div = document.createElement('div');
+                    div.classList.add('mb-2');
+                    const label = document.createElement('label');
+                    label.for = `edit_atributo_${attr.id}`;
+                    label.classList.add('form-label', 'form-label-sm');
+                    label.textContent = `${attr.nome}:`;
+                    const input = document.createElement('input');
+                    input.type = attr.tipo === 'num' ? 'number' : 'text';
+                    input.name = `edit_atributo_${attr.id}`;
+                    input.id = `edit_atributo_${attr.id}`;
+                    input.classList.add('form-control', 'form-control-sm');
+                    input.value = attr.tipo === 'num' ? attr.valor_num : attr.valor_texto;
+                    div.appendChild(label);
+                    div.appendChild(input);
+                    instanceAttributesDisplay.appendChild(div);
+                });
             } else {
-                templateSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+                instanceAttributesDisplay.innerHTML = '<small class="text-muted">Nenhum atributo para esta instância.</small>';
+            }
+
+            // Exibir Componentes (Quantidades Editáveis) no painel esquerdo
+            console.log("DEBUG: componentesQuantityList element:", componentesQuantityList);
+            componentesQuantityList.innerHTML = '';
+            componentes.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <div>
+                        ${c.nome_componente}: 
+                        <input type="number" class="form-control form-control-sm d-inline-block w-auto component-quantity-input" 
+                               data-component-id="${c.id}" value="${parseFloat(c.quantidade).toFixed(2)}" step="0.01">
+                        ${c.unidade_componente}
+                    </div>
+                `;
+                componentesQuantityList.appendChild(li);
+            });
+
+            // Exibir Componentes (Preços Unitários Editáveis) no painel direito
+            console.log("DEBUG: componentesPriceList element:", componentesPriceList);
+            componentesPriceList.innerHTML = '';
+            let initialCustoFabrico = 0;
+            componentes.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <div>
+                        ${c.nome_componente}: 
+                        <span class="component-quantity-display">${parseFloat(c.quantidade).toFixed(2)} ${c.unidade_componente}</span> x € 
+                        <input type="number" class="form-control form-control-sm d-inline-block w-auto component-price-input" 
+                               data-component-id="${c.id}" value="${parseFloat(c.custo_unitario).toFixed(2)}" step="0.01">
+                    </div>
+                    <span>€ <span class="component-total-display">${(parseFloat(c.quantidade) * parseFloat(c.custo_unitario)).toFixed(2)}</span></span>
+                `;
+                componentesPriceList.appendChild(li);
+                initialCustoFabrico += parseFloat(c.quantidade) * parseFloat(c.custo_unitario);
+            });
+
+            custoFabricoTotalSpan.textContent = initialCustoFabrico.toFixed(2);
+            custoFabricoInput.value = initialCustoFabrico.toFixed(2);
+            margemNegocioInput.value = item.margem_negocio || 0;
+            
+            calcularPrecoFinal();
+
+            // Adicionar event listeners para os inputs de preço unitário
+            document.querySelectorAll('.component-price-input').forEach(input => {
+                input.addEventListener('input', updateComponentPriceAndRecalculate);
+            });
+
+        } catch (error) {
+            console.error("Erro ao carregar detalhes do item para gestão de preço:", error);
+            alert("Não foi possível carregar os detalhes do item para gestão de preço.");
+        }
+    }
+
+    function updateComponentPriceAndRecalculate(event) {
+        const input = event.target;
+        const componentId = input.dataset.componentId;
+        const newPrice = parseFloat(input.value);
+
+        // Atualizar o total do componente na linha
+        const listItem = input.closest('li');
+        const quantityDisplay = parseFloat(listItem.querySelector('.component-quantity-display').textContent);
+        const totalSpan = listItem.querySelector('.component-total-display');
+        totalSpan.textContent = (quantityDisplay * newPrice).toFixed(2);
+
+        // Recalcular o custo total de fabrico
+        let newCustoFabricoTotal = 0;
+        document.querySelectorAll('#componentesPriceList .component-total-display').forEach(span => {
+            newCustoFabricoTotal += parseFloat(span.textContent);
+        });
+        custoFabricoTotalSpan.textContent = newCustoFabricoTotal.toFixed(2);
+        custoFabricoInput.value = newCustoFabricoTotal.toFixed(2);
+        calcularPrecoFinal();
+    }
+
+    if (margemNegocioInput) {
+        margemNegocioInput.addEventListener('input', calcularPrecoFinal);
+    }
+
+    if (saveComponentDetailsBtn) {
+        saveComponentDetailsBtn.addEventListener('click', async () => {
+            const atributosToSave = [];
+            document.querySelectorAll('#instance-attributes-display input').forEach(input => {
+                atributosToSave.push({
+                    id: input.id.replace('edit_atributo_', ''),
+                    valor: input.value
+                });
+            });
+
+            const componentesToSave = [];
+            document.querySelectorAll('#componentesQuantityList input').forEach(input => {
+                componentesToSave.push({
+                    id: input.dataset.componentId,
+                    quantidade: input.value
+                });
+            });
+
+            const csrfToken = getCookie('csrftoken');
+
+            try {
+                const response = await fetch(`/orcamentos/api/item/${currentManagedItemId}/update-components-and-attributes/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        atributos: atributosToSave,
+                        componentes: componentesToSave
+                    })
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Atributos e quantidades de componentes atualizados com sucesso!');
+                    // Recarregar a seção de gerenciamento de preço para refletir os novos cálculos
+                    await loadAndDisplayPriceManagement(currentManagedItemId);
+                } else {
+                    alert('Erro ao salvar: ' + result.message);
+                }
+            } catch (error) {
+                console.error("Erro ao salvar atributos e componentes:", error);
+                alert("Ocorreu um erro de comunicação ao salvar atributos e componentes.");
             }
         });
+    }
 
-        document.getElementById('template').addEventListener('change', function() {
-            const templateId = this.value;
-            const atributosContainer = document.getElementById('atributos-container');
-            atributosContainer.innerHTML = '';
+    if (salvarPrecoBtn) {
+        salvarPrecoBtn.addEventListener('click', async () => {
+            const precoUnitario = parseFloat(precoUnitarioFinalInput.value);
+            const margemNegocio = parseFloat(margemNegocioInput.value);
+            const csrfToken = getCookie('csrftoken');
 
-            if (templateId) {
-                fetch(`/api/produtos/template/${templateId}/atributos/`)
-                    .then(response => response.json())
-                    .then(data => {
-                        data.forEach(atributo => {
-                            const div = document.createElement('div');
-                            div.classList.add('mb-3'); // Add Bootstrap margin-bottom
-                            const label = document.createElement('label');
-                            label.for = `atributo_${atributo.atributo__id}`;
-                            label.classList.add('form-label'); // Add Bootstrap form-label
-                            label.textContent = atributo.atributo__nome;
-                            const input = document.createElement('input');
-                            input.type = atributo.atributo__tipo === 'num' ? 'number' : 'text';
-                            input.name = `atributo_${atributo.atributo__id}`;
-                            input.id = `atributo_${atributo.atributo__id}`;
-                            input.classList.add('form-control'); // Add Bootstrap form-control
-                            div.appendChild(label);
-                            div.appendChild(input);
-                            atributosContainer.appendChild(div);
-                        });
+            // Coletar os preços unitários dos componentes
+            const componentesPricesToSave = [];
+            document.querySelectorAll('#componentesPriceList input').forEach(input => {
+                componentesPricesToSave.push({
+                    id: input.dataset.componentId,
+                    custo_unitario: input.value
+                });
+            });
+
+            try {
+                const response = await fetch(`/orcamentos/api/item/${currentManagedItemId}/atualizar-detalhes/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        preco_unitario: precoUnitario,
+                        margem_negocio: margemNegocio,
+                        componentes_prices: componentesPricesToSave // Enviar os preços unitários dos componentes
+                    })
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Preço e margem atualizados com sucesso!');
+                    console.log('DEBUG: Price and margin updated successfully.'); // New log
+                    // Atualiza a tabela dinamicamente
+                    document.getElementById(`item-preco-${currentManagedItemId}`).textContent = `${parseFloat(result.novo_preco).toFixed(2)} €`;
+                    document.getElementById(`item-total-${currentManagedItemId}`).textContent = `${parseFloat(result.novo_total).toFixed(2)} €`;
+                    console.log('DEBUG: Item price and total updated in table.'); // New log
+
+                    // Recalcula o total geral
+                    let totalGeral = 0;
+                    document.querySelectorAll('td[id^="item-total-"]').forEach(td => {
+                        totalGeral += parseFloat(td.textContent.replace(' €', ''));
                     });
+                    document.getElementById('total-geral').textContent = totalGeral.toFixed(2);
+                    console.log('DEBUG: Total general recalculated after price update.'); // New log
+
+                } else {
+                    console.error('ERROR: Backend reported error on price update:', result.message); // New log
+                    alert('Erro ao salvar: ' + result.message);
+                }
+            } catch (error) {
+                console.error("Erro ao salvar preço:", error);
+                alert("Ocorreu um erro de comunicação ao salvar.");
             }
         });
-    </script>
+    }
+});
+</script>
 {% endblock %}

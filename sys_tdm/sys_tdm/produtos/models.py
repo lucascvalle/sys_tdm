@@ -23,13 +23,13 @@ class Atributo(models.Model):
     def __str__(self):
         return self.nome
 
-class ItemMaterial(models.Model):
-    descricao = models.CharField(max_length=200)
+class Componente(models.Model):
+    nome = models.CharField(max_length=200)
     custo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     unidade = models.CharField(max_length=20)
 
     def __str__(self):
-        return self.descricao
+        return self.nome
 
 class ProdutoTemplate(models.Model):
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name='templates')
@@ -49,40 +49,101 @@ class TemplateAtributo(models.Model):
     class Meta:
         unique_together = ('template', 'atributo')
 
+    def __str__(self):
+        return f"{self.template.nome} - {self.atributo.nome}"
+
 class TemplateComponente(models.Model):
     template = models.ForeignKey(ProdutoTemplate, on_delete=models.CASCADE, related_name='componentes')
-    item_material = models.ForeignKey(ItemMaterial, on_delete=models.PROTECT)
-    quantidade_expr = models.CharField(max_length=100,
-        help_text='Use expressões em Python com atributos do template, ex: (altura+largura)*2')
-    unidade = models.CharField(max_length=20)
+    componente = models.ForeignKey(Componente, on_delete=models.PROTECT, default=1)
+    quantidade_fixa = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    atributo_relacionado = models.ForeignKey(TemplateAtributo, on_delete=models.PROTECT, null=True, blank=True, related_name='componentes_relacionados')
+    formula_calculo = models.TextField(blank=True, help_text="""Fórmula Python para calcular a quantidade do componente. 
+
+**Variáveis disponíveis:**
+- `valor_atributo`: O valor do atributo selecionado em 'Atributo Relacionado'.
+- Nomes dos atributos da instância (ex: `altura`, `largura`, `numero_de_folhas`). Espaços são substituídos por underscores e letras minúsculas.
+- `math`: Módulo Python `math` para funções como `math.ceil()`, `math.floor()`, etc.
+
+**Exemplos:**
+- `valor_atributo * 3` (se 'Atributo Relacionado' for 'Número de Folhas')
+- `altura / 1000 * 2` (se 'altura' for um atributo da instância)
+- `math.ceil(altura / 1200) * numero_de_folhas` (para dobradiças por altura e folhas)
+- `10 + (largura / 500)` (quantidade base + variável)
+
+**CUIDADO:** Esta fórmula é avaliada como código Python. Use apenas com fontes confiáveis.
+""")
     fator_perda = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     class Meta:
-        unique_together = ('template', 'item_material')
+        unique_together = ('template', 'componente')
+
+    def __str__(self):
+        return f"{self.template.nome} - {self.componente.nome}"
 
 class FormulaTemplate(models.Model):
     template = models.ForeignKey(ProdutoTemplate, on_delete=models.CASCADE, related_name='formulas')
     expressao = models.TextField(
         help_text='Expressão global de cálculo, ex: sum(mat)+sum(mod)*1.2+overhead')
 
-# Instâncias para orçamentos
+# --- Novos Modelos para a Nova Arquitetura ---
+
+class ProdutoConfiguracao(models.Model):
+    template = models.ForeignKey(ProdutoTemplate, on_delete=models.PROTECT, related_name='configuracoes')
+    nome = models.CharField(max_length=255, help_text="Ex: Acabamento Fosco, Dobradiças Standard")
+    
+    def __str__(self):
+        return f"{self.template.nome} - {self.nome}"
+
+class ConfiguracaoComponenteEscolha(models.Model):
+    configuracao = models.ForeignKey(ProdutoConfiguracao, on_delete=models.CASCADE, related_name='componentes_escolha')
+    template_componente = models.ForeignKey(TemplateComponente, on_delete=models.PROTECT) # Qual regra de componente do template
+    componente_real = models.ForeignKey(Componente, on_delete=models.PROTECT) # Qual componente real usar
+
+    class Meta:
+        unique_together = ('configuracao', 'template_componente')
+
+    def __str__(self):
+        return f"{self.configuracao.nome} - {self.template_componente.componente.nome} -> {self.componente_real.nome}"
+
+class ConfiguracaoComponente(models.Model):
+    configuracao = models.ForeignKey(ProdutoConfiguracao, on_delete=models.CASCADE, related_name='componentes_configuracao')
+    componente = models.ForeignKey(Componente, on_delete=models.PROTECT)
+    quantidade = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    opcional = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('configuracao', 'componente')
+
+    def __str__(self):
+        return f"{self.configuracao.nome} - {self.componente.nome} ({'Opcional' if self.opcional else 'Obrigatório'})"
+
+# Instâncias para orçamentos (agora com atributos e componentes calculados)
 class ProdutoInstancia(models.Model):
-    template = models.ForeignKey(ProdutoTemplate, on_delete=models.PROTECT, related_name='instancias')
+    configuracao = models.ForeignKey(ProdutoConfiguracao, on_delete=models.PROTECT, related_name='instancias', null=True, blank=True)
     codigo = models.CharField(max_length=50)
     quantidade = models.PositiveIntegerField(default=1)
 
+    def __str__(self):
+        return f"{self.configuracao.nome} - {self.codigo}"
+
 class InstanciaAtributo(models.Model):
     instancia = models.ForeignKey(ProdutoInstancia, on_delete=models.CASCADE, related_name='atributos')
-    atributo = models.ForeignKey(Atributo, on_delete=models.PROTECT)
+    template_atributo = models.ForeignKey(TemplateAtributo, on_delete=models.PROTECT)
     valor_texto = models.CharField(max_length=200, blank=True)
     valor_num = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     class Meta:
-        unique_together = ('instancia', 'atributo')
+        unique_together = ('instancia', 'template_atributo')
+
+    def __str__(self):
+        return f"{self.instancia.codigo} - {self.template_atributo.atributo.nome}: {self.valor_texto or self.valor_num}"
 
 class InstanciaComponente(models.Model):
     instancia = models.ForeignKey(ProdutoInstancia, on_delete=models.CASCADE, related_name='componentes')
-    item_material = models.ForeignKey(ItemMaterial, on_delete=models.PROTECT)
+    componente = models.ForeignKey(Componente, on_delete=models.PROTECT)
     quantidade = models.DecimalField(max_digits=10, decimal_places=4)
-    unidade = models.CharField(max_length=20)
     custo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    descricao_detalhada = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.instancia.codigo} - {self.componente.nome}: {self.quantidade}"

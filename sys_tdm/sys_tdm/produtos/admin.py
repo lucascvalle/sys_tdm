@@ -1,8 +1,8 @@
 from django.contrib import admin
 from .models import (
-    Categoria, Atributo, ItemMaterial,
-    ProdutoTemplate, TemplateAtributo, TemplateComponente, FormulaTemplate,
-    ProdutoInstancia, InstanciaAtributo, InstanciaComponente
+    Categoria, Atributo, Componente, ProdutoTemplate, TemplateAtributo, 
+    TemplateComponente, ProdutoConfiguracao, ConfiguracaoComponenteEscolha, 
+    ProdutoInstancia, InstanciaAtributo, InstanciaComponente, FormulaTemplate
 )
 
 # Inlines para facilitar a edição
@@ -15,20 +15,27 @@ class TemplateAtributoInline(admin.TabularInline):
 class TemplateComponenteInline(admin.TabularInline):
     model = TemplateComponente
     extra = 1
+    fields = ('componente', 'quantidade_fixa', 'atributo_relacionado', 'formula_calculo', 'fator_perda')
 
 class FormulaTemplateInline(admin.StackedInline):
     model = FormulaTemplate
     extra = 1
 
+class ConfiguracaoComponenteEscolhaInline(admin.TabularInline):
+    model = ConfiguracaoComponenteEscolha
+    extra = 1
+    fields = ('template_componente', 'componente_real')
+
 class InstanciaAtributoInline(admin.TabularInline):
     model = InstanciaAtributo
     extra = 1
-    readonly_fields = ('atributo',)
+    fields = ('template_atributo', 'valor_texto', 'valor_num')
 
 class InstanciaComponenteInline(admin.TabularInline):
     model = InstanciaComponente
     extra = 1
-    readonly_fields = ('item_material', 'unidade', 'custo_unitario')
+    fields = ('componente', 'quantidade', 'custo_unitario', 'descricao_detalhada')
+    readonly_fields = ('componente', 'custo_unitario')
 
 # ModelAdmins
 
@@ -43,10 +50,10 @@ class AtributoAdmin(admin.ModelAdmin):
     list_filter = ('tipo',)
     search_fields = ('nome',)
 
-@admin.register(ItemMaterial)
-class ItemMaterialAdmin(admin.ModelAdmin):
-    list_display = ('descricao', 'custo_unitario', 'unidade')
-    search_fields = ('descricao',)
+@admin.register(Componente)
+class ComponenteAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'custo_unitario', 'unidade')
+    search_fields = ('nome',)
 
 @admin.register(ProdutoTemplate)
 class ProdutoTemplateAdmin(admin.ModelAdmin):
@@ -55,21 +62,17 @@ class ProdutoTemplateAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'descricao')
     inlines = [TemplateAtributoInline, TemplateComponenteInline, FormulaTemplateInline]
 
+@admin.register(ProdutoConfiguracao)
+class ProdutoConfiguracaoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'template')
+    list_filter = ('template__categoria',)
+    search_fields = ('nome', 'template__nome')
+    inlines = [ConfiguracaoComponenteEscolhaInline]
+
 @admin.register(ProdutoInstancia)
 class ProdutoInstanciaAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'template', 'quantidade')
-    list_filter = ('template__categoria',)
-    search_fields = ('codigo', 'template__nome')
-    inlines = [
-        InstanciaAtributoInline,
-        InstanciaComponenteInline,
-    ]
-    readonly_fields = ('template',)
-
-# Não é necessário registrar os modelos de "junção" diretamente
-# pois eles são gerenciados através dos inlines.
-# admin.site.register(TemplateAtributo)
-# admin.site.register(TemplateComponente)
-# admin.site.register(FormulaTemplate)
-# admin.site.register(InstanciaAtributo)
-# admin.site.register(InstanciaComponente)
+    list_display = ('codigo', 'configuracao', 'quantidade')
+    list_filter = ('configuracao__template__categoria',)
+    search_fields = ('codigo', 'configuracao__nome')
+    inlines = [InstanciaAtributoInline, InstanciaComponenteInline]
+    readonly_fields = ('configuracao',)

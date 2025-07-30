@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Operadores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Operadores</h1>
+        <a href="{% url 'consumos:operador_create' %}" class="btn btn-primary">Novo Operador</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <ul class="list-group">
+                {% for operador in operadores %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ operador.nome }}
+                        <div>
+                            <a href="{% url 'consumos:operador_update' operador.pk %}" class="btn btn-sm btn-warning">Editar</a>
+                            <a href="{% url 'consumos:operador_delete' operador.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-center">Nenhum operador encontrado.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

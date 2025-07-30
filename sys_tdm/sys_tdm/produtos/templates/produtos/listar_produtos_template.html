@@ -38,8 +38,8 @@
                             <td>{{ produto_template.descricao }}</td>
                             <td>{{ produto_template.unidade }}</td>
                             <td>
-                                {# Adicionar links para editar/excluir se existirem #}
-                                <a href="#" class="btn btn-info btn-sm">Detalhes</a>
+                                <a href="{% url 'listar_produto_configuracoes' %}?template_id={{ produto_template.id }}" class="btn btn-sm btn-secondary">Ver Configurações</a>
+                                <a href="{% url 'criar_produto_configuracao' %}?template_id={{ produto_template.id }}" class="btn btn-sm btn-success">Nova Configuração</a>
                             </td>
                         </tr>
                     {% endfor %}

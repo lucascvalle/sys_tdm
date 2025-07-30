@@ -1,0 +1,19 @@
+{% load orcamentos_extras %}
+<tr>
+    <td>{{ item.codigo_item_manual|default:"-" }}</td>
+    <td>
+        {{ item|format_item_display_name }}
+    </td>
+    <td>{{ item.quantidade }}</td>
+    <td id="item-preco-{{ item.id }}">{{ item.preco_unitario|floatformat:2 }} €</td>
+    <td id="item-total-{{ item.id }}">{{ item.total|floatformat:2 }} €</td>
+    <td>
+        <form action="{% url 'remover_item_orcamento' item.orcamento.id item.id %}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este item?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+        </form>
+        {% if item.instancia %}
+            <button type="button" class="btn btn-info btn-sm mt-1" onclick="loadAndDisplayPriceManagement({{ item.id }})">Gerir Preço</button>
+        {% endif %}
+    </td>
+</tr>

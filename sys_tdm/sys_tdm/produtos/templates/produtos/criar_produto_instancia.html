@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load crispy_forms_tags %}
 
 {% block title %}Criar Instância de Produto - SysOrc{% endblock %}
 
@@ -12,18 +13,25 @@
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
-                        {% for field in form %}
-                            <div class="mb-3">
-                                {{ field.label_tag }}
-                                {{ field }}
-                                {% if field.help_text %}
-                                    <div class="form-text">{{ field.help_text }}</div>
-                                {% endif %}
-                                {% for error in field.errors %}
-                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                        <div class="mb-3">
+                            <label for="id_configuracao" class="form-label">Configuração do Produto:</label>
+                            <select name="configuracao" id="id_configuracao" class="form-select">
+                                <option value="">Selecione uma configuração</option>
+                                {% for config_obj in form.configuracao.field.queryset %}
+                                    <option value="{{ config_obj.id }}" {% if config_obj.id == form.configuracao.value %}selected{% endif %}>{{ config_obj.nome }} ({{ config_obj.template.nome }})</option>
                                 {% endfor %}
-                            </div>
-                        {% endfor %}
+                            </select>
+                        </div>
+
+                        {{ form.codigo|crispy }}
+                        {{ form.quantidade|crispy }}
+
+                        <h3>Atributos da Instância</h3>
+                        {{ formset.management_form }}
+                        <div id="instance-attributes-container">
+                            <!-- Atributos dinâmicos serão inseridos aqui -->
+                        </div>
+
                         <button type="submit" class="btn btn-primary">Criar Instância</button>
                         <a href="{% url 'listar_produto_instancias' %}" class="btn btn-secondary ms-2">Voltar para a Lista</a>
                     </form>
@@ -31,4 +39,123 @@
             </div>
         </div>
     </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const configuracaoSelect = document.getElementById('id_configuracao');
+        const instanceAttributesContainer = document.getElementById('instance-attributes-container');
+        const totalFormsInput = document.querySelector('#id_form-TOTAL_FORMS');
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function fetchInstanceAttributes(configuracaoId, initialData = {}) {
+            instanceAttributesContainer.innerHTML = ''; // Limpa atributos existentes
+            totalFormsInput.value = 0; // Reseta o contador de formulários
+
+            if (!configuracaoId) {
+                return;
+            }
+
+            try {
+                // Fetch the template ID from the selected configuration
+                const configResponse = await fetch(`/produtos/api/configuracao/${configuracaoId}/`);
+                if (!configResponse.ok) {
+                    throw new Error(`HTTP error! status: ${configResponse.status}`);
+                }
+                const configData = await configResponse.json();
+                const templateId = configData.template_id;
+
+                // Fetch TemplateAtributos for the associated template
+                const templateAttributesResponse = await fetch(`/produtos/api/template/${templateId}/atributos/`);
+                if (!templateAttributesResponse.ok) {
+                    throw new Error(`HTTP error! status: ${templateAttributesResponse.status}`);
+                }
+                const templateAttributes = await templateAttributesResponse.json();
+
+                templateAttributes.forEach((ta, index) => {
+                    const formIndex = parseInt(totalFormsInput.value);
+                    const div = document.createElement('div');
+                    div.classList.add('formset-row', 'mb-3', 'p-3', 'border', 'rounded', 'bg-light');
+
+                    // Hidden input for the TemplateAtributo ID
+                    const hiddenTaInput = document.createElement('input');
+                    hiddenTaInput.type = 'hidden';
+                    hiddenTaInput.name = `form-${formIndex}-template_atributo`;
+                    hiddenTaInput.value = ta.id; // This is the TemplateAtributo ID
+                    div.appendChild(hiddenTaInput);
+
+                    // Hidden input for the InstanciaAtributo ID (for existing instances)
+                    const hiddenIdInput = document.createElement('input');
+                    hiddenIdInput.type = 'hidden';
+                    hiddenIdInput.name = `form-${formIndex}-id`;
+                    if (initialData[ta.id] && initialData[ta.id].id) {
+                        hiddenIdInput.value = initialData[ta.id].id;
+                    }
+                    div.appendChild(hiddenIdInput);
+
+                    // Label for the attribute
+                    const label = document.createElement('label');
+                    label.htmlFor = `id_form-${formIndex}-${ta.atributo__tipo === 'num' ? 'valor_num' : 'valor_texto'}`;
+                    label.classList.add('form-label');
+                    label.textContent = ta.atributo__nome + (ta.obrigatorio ? ' *' : '');
+                    div.appendChild(label);
+
+                    // Input field for the attribute value
+                    const input = document.createElement('input');
+                    input.classList.add('form-control');
+                    input.id = `id_form-${formIndex}-${ta.atributo__tipo === 'num' ? 'valor_num' : 'valor_texto'}`;
+                    input.name = `form-${formIndex}-${ta.atributo__tipo === 'num' ? 'valor_num' : 'valor_texto'}`;
+                    input.type = ta.atributo__tipo === 'num' ? 'number' : 'text';
+                    if (ta.atributo__tipo === 'num') {
+                        input.step = 'any'; // Allow decimal numbers
+                    }
+                    // Set initial value if available
+                    if (initialData[ta.id]) {
+                        input.value = initialData[ta.id].valor_num !== null ? initialData[ta.id].valor_num : initialData[ta.id].valor_texto;
+                    }
+                    div.appendChild(input);
+
+                    // Hidden DELETE checkbox for formset
+                    const deleteInput = document.createElement('input');
+                    deleteInput.type = 'hidden';
+                    deleteInput.name = `form-${formIndex}-DELETE`;
+                    deleteInput.value = 'off';
+                    div.appendChild(deleteInput);
+
+                    instanceAttributesContainer.appendChild(div);
+                    totalFormsInput.value = formIndex + 1;
+                });
+
+            } catch (error) {
+                console.error('Erro ao buscar atributos da instância:', error);
+                instanceAttributesContainer.innerHTML = '<p class="text-danger">Erro ao carregar atributos da instância.</p>';
+            }
+        }
+
+        // Initial load if configuration is already selected (e.g., from GET parameter)
+        if (configuracaoSelect.value) {
+            fetchInstanceAttributes(configuracaoSelect.value);
+        }
+
+        // Event listener for configuration selection change
+        configuracaoSelect.addEventListener('change', function() {
+            fetchInstanceAttributes(this.value);
+        });
+    });
+</script>
 {% endblock %}

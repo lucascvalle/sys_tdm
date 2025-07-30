@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Criar Nova Configuração de Produto</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="id_template" class="form-label">Template do Produto:</label>
+            <select name="template" id="id_template" class="form-select">
+                <option value="">Selecione um template</option>
+                {% for template_obj in form.template.field.queryset %}
+                    <option value="{{ template_obj.id }}" {% if template_obj.id == form.template.value %}selected{% endif %}>{{ template_obj.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {{ form.name|crispy }}
+
+        <h3>Escolha de Componentes</h3>
+        {{ formset.management_form }}
+        <div id="component-choices-container">
+            <!-- Escolhas de componentes dinâmicas serão inseridas aqui -->
+        </div>
+
+        <button type="submit" class="btn btn-success">Salvar Configuração</button>
+        <a href="{% url 'listar_produto_configuracoes' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const templateSelect = document.getElementById('id_template');
+        const componentChoicesContainer = document.getElementById('component-choices-container');
+        const totalFormsInput = document.querySelector('#id_form-TOTAL_FORMS');
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function fetchComponentChoices(templateId, initialData = {}) {
+            componentChoicesContainer.innerHTML = ''; // Limpa escolhas existentes
+            totalFormsInput.value = 0; // Reseta o contador de formulários
+
+            if (!templateId) {
+                return;
+            }
+
+            try {
+                // Fetch TemplateComponents for the selected template
+                const templateComponentsResponse = await fetch(`/produtos/api/template/${templateId}/componentes/`);
+                if (!templateComponentsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${templateComponentsResponse.status}`);
+                }
+                const templateComponents = await templateComponentsResponse.json();
+
+                // Fetch all available Components
+                const allComponentsResponse = await fetch(`/produtos/api/componentes/`);
+                if (!allComponentsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${allComponentsResponse.status}`);
+                }
+                const allComponents = await allComponentsResponse.json();
+
+                templateComponents.forEach((tc, index) => {
+                    const formIndex = parseInt(totalFormsInput.value);
+                    const div = document.createElement('div');
+                    div.classList.add('formset-row', 'mb-3', 'p-3', 'border', 'rounded', 'bg-light');
+
+                    // Hidden input for the TemplateComponente ID
+                    const hiddenTcInput = document.createElement('input');
+                    hiddenTcInput.type = 'hidden';
+                    hiddenTcInput.name = `form-${formIndex}-template_componente`;
+                    hiddenTcInput.value = tc.id; // This is the TemplateComponente ID
+                    div.appendChild(hiddenTcInput);
+
+                    // Hidden input for the ConfiguracaoComponenteEscolha ID (for existing instances)
+                    const hiddenIdInput = document.createElement('input');
+                    hiddenIdInput.type = 'hidden';
+                    hiddenIdInput.name = `form-${formIndex}-id`;
+                    if (initialData[tc.id] && initialData[tc.id].id) {
+                        hiddenIdInput.value = initialData[tc.id].id;
+                    }
+                    div.appendChild(hiddenIdInput);
+
+                    // Label for the component choice
+                    const label = document.createElement('label');
+                    label.htmlFor = `id_form-${formIndex}-componente_real`;
+                    label.classList.add('form-label');
+                    label.textContent = `Escolha para ${tc.componente__nome}:`;
+                    div.appendChild(label);
+
+                    // Select dropdown for Componente real
+                    const select = document.createElement('select');
+                    select.classList.add('form-select');
+                    select.id = `id_form-${formIndex}-componente_real`;
+                    select.name = `form-${formIndex}-componente_real`;
+
+                    let defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Selecione um componente';
+                    select.appendChild(defaultOption);
+
+                    allComponents.forEach(comp => {
+                        const option = document.createElement('option');
+                        option.value = comp.id;
+                        option.textContent = comp.nome;
+                        select.appendChild(option);
+                    });
+
+                    // Set initial value if available
+                    if (initialData[tc.id] && initialData[tc.id].componente_real_id) {
+                        select.value = initialData[tc.id].componente_real_id;
+                    }
+                    div.appendChild(select);
+
+                    // Hidden DELETE checkbox for formset
+                    const deleteInput = document.createElement('input');
+                    deleteInput.type = 'hidden';
+                    deleteInput.name = `form-${formIndex}-DELETE`;
+                    deleteInput.value = 'off';
+                    div.appendChild(deleteInput);
+
+                    componentChoicesContainer.appendChild(div);
+                    totalFormsInput.value = formIndex + 1;
+                });
+
+            } catch (error) {
+                console.error('Erro ao buscar escolhas de componentes:', error);
+                componentChoicesContainer.innerHTML = '<p class="text-danger">Erro ao carregar escolhas de componentes.</p>';
+            }
+        }
+
+        // Initial load if template is already selected (e.g., from GET parameter)
+        if (templateSelect.value) {
+            fetchComponentChoices(templateSelect.value);
+        }
+
+        // Event listener for template selection change
+        templateSelect.addEventListener('change', function() {
+            fetchComponentChoices(this.value);
+        });
+    });
+</script>
+{% endblock %}

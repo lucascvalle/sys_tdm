@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Q # Import Q for complex queries
-from .models import Categoria, Atributo, ItemMaterial, ProdutoTemplate, ProdutoInstancia, InstanciaAtributo
+from .models import Categoria, Atributo, ProdutoTemplate, ProdutoInstancia, ProdutoConfiguracao, TemplateAtributo, Componente, ConfiguracaoComponenteEscolha, InstanciaAtributo, InstanciaComponente, TemplateComponente
 from orcamentos.models import ItemOrcamento, Orcamento
-from .forms import CategoriaForm, AtributoForm, ItemMaterialForm, ProdutoTemplateForm, ProdutoInstanciaForm, TemplateAtributoFormSet
+from .forms import CategoriaForm, AtributoForm, ProdutoTemplateForm, ProdutoInstanciaForm, TemplateAtributoFormSet, ProdutoConfiguracaoForm, ConfiguracaoComponenteEscolhaFormSet, InstanciaAtributoFormSet, InstanciaComponenteFormSet
 from django.http import JsonResponse
+import json
 
 def produtos_home(request):
     return render(request, 'produtos/produtos_home.html')
@@ -62,9 +63,89 @@ def listar_produto_instancias(request):
     # Você pode adicionar lógica de busca aqui se necessário
     return render(request, 'produtos/listar_produto_instancias.html', {'instancias': instancias})
 
+# Views para ProdutoConfiguracao
+def listar_produto_configuracoes(request):
+    configuracoes = ProdutoConfiguracao.objects.all()
+    return render(request, 'produtos/listar_produto_configuracoes.html', {'configuracoes': configuracoes})
 
-# TODO: Adicionar views para outros modelos (Atributo, ItemMaterial, etc.)
-# TODO: Adicionar views para edição, exclusão, e detalhes de cada item.
+def criar_produto_configuracao(request):
+    template_id = request.GET.get('template_id')
+    template = None
+    if template_id:
+        template = get_object_or_404(ProdutoTemplate, pk=template_id)
+
+    if request.method == 'POST':
+        form = ProdutoConfiguracaoForm(request.POST)
+        formset = ConfiguracaoComponenteEscolhaFormSet(request.POST, request.FILES)
+        if form.is_valid() and formset.is_valid():
+            produto_configuracao = form.save(commit=False)
+            if template: # Assign template if it came from GET
+                produto_configuracao.template = template
+            produto_configuracao.save()
+
+            formset.instance = produto_configuracao
+            formset.save()
+
+            messages.success(request, "Configuração de Produto criada com sucesso!")
+            return redirect('listar_produto_configuracoes')
+        else:
+            messages.error(request, "Erro ao criar Configuração de Produto. Verifique os dados e as escolhas de componentes.")
+    else:
+        initial_form_data = {}
+        if template:
+            initial_form_data['template'] = template.id
+        form = ProdutoConfiguracaoForm(initial=initial_form_data)
+        formset = ConfiguracaoComponenteEscolhaFormSet()
+
+    context = {
+        'form': form,
+        'formset': formset,
+        'template': template, # Pass template to context for template rendering
+    }
+    return render(request, 'produtos/criar_produto_configuracao.html', context)
+
+def editar_produto_configuracao(request, pk):
+    configuracao = get_object_or_404(ProdutoConfiguracao, pk=pk)
+    template = configuracao.template # Get the template from the existing configuration
+
+    # Prepare initial data for ConfiguracaoComponenteEscolhaFormSet
+    initial_component_choices_data = {}
+    for cce in configuracao.componentes_escolha.all():
+        initial_component_choices_data[cce.template_componente.id] = {
+            'id': cce.id,
+            'componente_real_id': cce.componente_real.id,
+        }
+
+    if request.method == 'POST':
+        form = ProdutoConfiguracaoForm(request.POST, instance=configuracao)
+        formset = ConfiguracaoComponenteEscolhaFormSet(request.POST, request.FILES, instance=configuracao)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, "Configuração de Produto atualizada com sucesso!")
+            return redirect('listar_produto_configuracoes')
+        else:
+            messages.error(request, "Erro ao atualizar Configuração de Produto. Verifique os dados e as escolhas de componentes.")
+    else:
+        form = ProdutoConfiguracaoForm(instance=configuracao)
+        formset = ConfiguracaoComponenteEscolhaFormSet(instance=configuracao)
+
+    context = {
+        'form': form,
+        'formset': formset,
+        'template': template, # Pass template to context for template rendering
+        'initial_component_choices_data': json.dumps(initial_component_choices_data), # Pass serialized initial data
+    }
+    return render(request, 'produtos/editar_produto_configuracao.html', context)
+
+def excluir_produto_configuracao(request, pk):
+    configuracao = get_object_or_404(ProdutoConfiguracao, pk=pk)
+    if request.method == 'POST':
+        configuracao.delete()
+        messages.success(request, "Configuração de Produto excluída com sucesso!")
+        return redirect('listar_produto_configuracoes')
+    return render(request, 'produtos/confirmar_exclusao_configuracao.html', {'configuracao': configuracao})
+
 
 # --- API Views ---
 
@@ -74,42 +155,42 @@ def get_templates_by_categoria(request, categoria_id):
 
 def get_atributos_by_template(request, template_id):
     template = get_object_or_404(ProdutoTemplate, pk=template_id)
-    atributos = template.atributos.all().values('atributo__id', 'atributo__nome', 'atributo__tipo')
+    # Return TemplateAtributo data, including the Atributo details
+    atributos = template.atributos.all().values(
+        'id', # TemplateAtributo ID
+        'atributo__id',
+        'atributo__nome',
+        'atributo__tipo',
+        'obrigatorio',
+        'ordem'
+    )
     return JsonResponse(list(atributos), safe=False)
 
-def get_instancia_detalhes_json(request, instancia_id):
-    instancia = get_object_or_404(ProdutoInstancia, pk=instancia_id)
+def get_template_components_by_template(request, template_id):
+    template = get_object_or_404(ProdutoTemplate, pk=template_id)
+    template_components = template.componentes.all().values(
+        'id',
+        'componente__nome',
+        'componente__id',
+        'quantidade_fixa',
+        'atributo_relacionado__atributo__nome',
+        'formula_calculo'
+    )
+    return JsonResponse(list(template_components), safe=False)
 
-    # Detalhes da Instância
-    instancia_data = {
-        'id': instancia.id,
-        'codigo': instancia.codigo,
-        'template_nome': instancia.template.nome,
-        'quantidade': instancia.quantidade,
-        'atributos': []
-    }
+def get_all_components(request):
+    components = Componente.objects.all().values('id', 'nome')
+    return JsonResponse(list(components), safe=False)
 
-    # Atributos da Instância
-    for attr_instancia in instancia.atributos.all():
-        valor = attr_instancia.valor_num if attr_instancia.atributo.tipo == 'num' else attr_instancia.valor_texto
-        instancia_data['atributos'].append({
-            'nome': attr_instancia.atributo.nome,
-            'valor': str(valor) # Converter para string para JSON
-        })
-
-    # Orçamentos relacionados
-    orcamentos_data = []
-    # Encontrar todos os ItemOrcamento que usam esta ProdutoInstancia
-    itens_orcamento = ItemOrcamento.objects.filter(instancia=instancia).select_related('orcamento')
-
-    for item_orcamento in itens_orcamento:
-        orcamento = item_orcamento.orcamento
-        orcamentos_data.append({
-            'id': orcamento.id,
-            'codigo_legado': orcamento.codigo_legado,
-            'nome_cliente': orcamento.nome_cliente,
-            'data_solicitacao': orcamento.data_solicitacao.strftime('%d/%m/%Y') if orcamento.data_solicitacao else None,
-            'versao': orcamento.versao,
-        })
-
-    return JsonResponse({'instancia': instancia_data, 'orcamentos': orcamentos_data})
+def get_components_by_configuration(request, configuracao_id):
+    configuracao = get_object_or_404(ProdutoConfiguracao, pk=configuracao_id)
+    components = configuracao.componentes_configuracao.all().values(
+        'id',
+        'componente__id',
+        'componente__nome',
+        'componente__unidade',
+        'componente__custo_unitario',
+        'quantidade',
+        'opcional'
+    )
+    return JsonResponse(list(components), safe=False)

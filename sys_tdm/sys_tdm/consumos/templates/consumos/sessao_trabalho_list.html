@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Sessões de Trabalho{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Sessões de Trabalho</h1>
+        <a href="{% url 'consumos:sessao_trabalho_create' %}" class="btn btn-primary">Nova Sessão</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Posto de Trabalho</th>
+                        <th>Operador</th>
+                        <th>Ref. da Obra</th>
+                        <th>Início</th>
+                        <th>Fim</th>
+                        <th>Operação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sessao in sessoes %}
+                    <tr>
+                        <td>{{ sessao.posto_trabalho.nome }}</td>
+                        <td>{{ sessao.operador.nome }}</td>
+                        <td>{{ sessao.ref_obra }}</td>
+                        <td>{{ sessao.hora_inicio|date:"d/m/Y H:i" }}</td>
+                        <td>{{ sessao.hora_saida|date:"d/m/Y H:i"|default:"--" }}</td>
+                        <td>{{ sessao.operacao|truncatewords:10 }}</td>
+                        <td>
+                            <a href="{% url 'consumos:sessao_trabalho_update' sessao.pk %}" class="btn btn-sm btn-warning">Editar</a>
+                            <a href="{% url 'consumos:sessao_trabalho_delete' sessao.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">Nenhuma sessão de trabalho encontrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

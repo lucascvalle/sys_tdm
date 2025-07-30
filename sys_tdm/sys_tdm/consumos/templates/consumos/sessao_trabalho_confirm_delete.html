@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão de Sessão{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Confirmar Exclusão</h2>
+        </div>
+        <div class="card-body">
+            <p>Você tem certeza que deseja excluir a sessão de trabalho em <strong>{{ object.posto_trabalho.nome }}</strong> por <strong>{{ object.operador.nome }}</strong> para a obra <strong>{{ object.ref_obra }}</strong>?</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Sim, excluir</button>
+                <a href="{% url 'consumos:sessao_trabalho_list' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

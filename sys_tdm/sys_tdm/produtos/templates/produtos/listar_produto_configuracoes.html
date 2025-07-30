@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Listar Configurações de Produto</h2>
+    <a href="{% url 'criar_produto_configuracao' %}" class="btn btn-primary mb-3">Criar Nova Configuração</a>
+
+    {% if configuracoes %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome da Configuração</th>
+                    <th>Template Associado</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for config in configuracoes %}
+                <tr>
+                    <td>{{ config.id }}</td>
+                    <td>{{ config.nome }}</td>
+                    <td>{{ config.template.nome }}</td>
+                    <td>
+                        <a href="{% url 'editar_produto_configuracao' config.pk %}" class="btn btn-sm btn-info">Editar</a>
+                        <a href="{% url 'excluir_produto_configuracao' config.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>Nenhuma configuração de produto encontrada.</p>
+    {% endif %}
+</div>
+{% endblock %}

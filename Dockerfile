@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8000
 
 # Comando para rodar a aplicação
-CMD ["python", "sys_tdm/sys_tdm/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "-u", "sys_tdm/sys_tdm/manage.py", "runserver", "0.0.0.0:8000"]

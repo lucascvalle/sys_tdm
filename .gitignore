@@ -1,0 +1,19 @@
+# Python
+*.pyc
+__pycache__/
+.Python
+venv/
+env/
+
+# Django
+*.log
+*.sqlite3
+media/
+static_collected/
+
+# IDEs
+.idea/
+.vscode/
+
+# Debugging/Temporary files
+debug_logs.txt

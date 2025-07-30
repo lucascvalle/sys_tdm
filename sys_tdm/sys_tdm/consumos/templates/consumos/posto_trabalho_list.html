@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Postos de Trabalho{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Postos de Trabalho</h1>
+        <a href="{% url 'consumos:posto_trabalho_create' %}" class="btn btn-primary">Novo Posto</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <ul class="list-group">
+                {% for posto in postos %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ posto.nome }} - Custo/h: R$ {{ posto.custo_hora }}
+                        <div>
+                            <a href="{% url 'consumos:posto_trabalho_update' posto.pk %}" class="btn btn-sm btn-warning">Editar</a>
+                            <a href="{% url 'consumos:posto_trabalho_delete' posto.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-center">Nenhum posto de trabalho encontrado.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

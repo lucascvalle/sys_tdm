@@ -8,8 +8,16 @@ urlpatterns = [
     path('templates/', views.listar_produtos_template, name='listar_produtos_template'),
     path('templates/criar/', views.criar_produto_template, name='criar_produto_template'),
     path('instancias/', views.listar_produto_instancias, name='listar_produto_instancias'),
-    path('instancias/<int:instancia_id>/detalhes_json/', views.get_instancia_detalhes_json, name='get_instancia_detalhes_json'),
-    
-    
+
+    # URLs para ProdutoConfiguracao
+    path('configuracoes/', views.listar_produto_configuracoes, name='listar_produto_configuracoes'),
+    path('configuracoes/criar/', views.criar_produto_configuracao, name='criar_produto_configuracao'),
+    path('configuracoes/<int:pk>/editar/', views.editar_produto_configuracao, name='editar_produto_configuracao'),
+    path('configuracoes/<int:pk>/excluir/', views.excluir_produto_configuracao, name='excluir_produto_configuracao'),
+
+    # API URLs
+    path('api/template/<int:template_id>/componentes/', views.get_template_components_by_template, name='api_get_template_components_by_template'),
+    path('api/componentes/', views.get_all_components, name='api_get_all_components'),
+
     # TODO: Adicionar URLs para outros modelos e funcionalidades
 ]
