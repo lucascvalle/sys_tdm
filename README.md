@@ -8,6 +8,7 @@ O SysOrc é um sistema web integrado desenvolvido para otimizar a gestão de pro
 
 ### Módulo de Orçamentos
 - **Criação e Edição de Orçamentos**: Gerencie orçamentos com adição e remoção dinâmica de itens.
+- **Descrições Dinâmicas**: Crie descrições de itens e configurações baseadas em templates, que são preenchidas automaticamente com os atributos e componentes do produto.
 - **Cálculos Automáticos**: Valores por item e total do orçamento calculados em tempo real.
 - **Versionamento de Orçamentos**: Crie novas versões de orçamentos existentes para rastreamento de revisões.
 - **Exportação para Excel**: Gere documentos de orçamento detalhados e fichas de produção em formato `.xlsx`.
@@ -20,6 +21,7 @@ O SysOrc é um sistema web integrado desenvolvido para otimizar a gestão de pro
 - **Instâncias de Produto**: Crie instâncias de produtos com base em templates e configurações, com atributos e componentes calculados dinamicamente.
 
 ### Módulo de Consumos
+- **Dashboard de KPIs**: Visualize indicadores de performance chave, como tempo de produção por posto e operador, tempo médio por operação e detalhes de consumo por obra.
 - **Registro de Consumo de Material**: Rastreie o consumo de matéria-prima e componentes por obra.
 - **Registro de Sessões de Trabalho**: Monitore o uso de máquinas e o tempo de trabalho de operadores em postos específicos.
 - **Gestão de Postos de Trabalho e Operadores**: Cadastre e gerencie os recursos humanos e máquinas da fábrica.
