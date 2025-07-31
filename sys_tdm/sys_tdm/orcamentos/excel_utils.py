@@ -6,6 +6,9 @@ from copy import copy
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from openpyxl.utils import get_column_letter
+from django.template import Template, Context
+import decimal
+import re
 
 # Importações de modelos necessárias
 from orcamentos.models import Orcamento, ItemOrcamento
@@ -32,7 +35,7 @@ def copy_style(source_cell, target_cell):
         target_cell.alignment = copy(source_cell.alignment)
         target_cell.number_format = source_cell.number_format or 'General'
 
-def _formatar_detalhes_item_ficha(item):
+def _format_detailed_item_description_base(item, include_monetary_values=True):
     display_name = ""
     componentes_str = ""
 
@@ -57,9 +60,13 @@ def _formatar_detalhes_item_ficha(item):
         # Componentes Calculados da Instância
         componentes_str = "\n--- Componentes ---\n"
         for ic in item.instancia.componentes.all():
-            componentes_str += f"- {ic.componente.nome}: {ic.quantidade} {ic.componente.unidade} (Custo Unit: {ic.custo_unitario})\n"
+            component_line = f"- {ic.componente.nome}: {ic.quantidade} {ic.componente.unidade}"
+            if include_monetary_values:
+                component_line += f" (Custo Unit: {ic.custo_unitario})"
+            component_line += "\n"
             if ic.descricao_detalhada:
-                componentes_str += f"  Detalhes: {ic.descricao_detalhada}\n"
+                component_line += f"  Detalhes: {ic.descricao_detalhada}\n"
+            componentes_str += component_line
 
     elif item.configuracao:
         display_name = item.configuracao.nome
@@ -78,6 +85,100 @@ def _formatar_detalhes_item_ficha(item):
         display_name = f"{item.codigo_item_manual} - {display_name}"
 
     return display_name + componentes_str
+
+def _formatar_detalhes_item_orcamento(item):
+    return _format_detailed_item_description_base(item, include_monetary_values=True)
+
+def _formatar_detalhes_item_ficha_producao(item):
+    return _format_detailed_item_description_base(item, include_monetary_values=False)
+
+# Helper para sanitizar nomes para serem usados como variáveis de template
+def _sanitize_name(name):
+    if not name:
+        return ""
+    # 1. Converter para minúsculas
+    s = name.lower()
+    # 2. Substituir caracteres acentuados comuns
+    s = s.replace('á', 'a').replace('à', 'a').replace('â', 'a').replace('ã', 'a')
+    s = s.replace('é', 'e').replace('ê', 'e')
+    s = s.replace('í', 'i')
+    s = s.replace('ó', 'o').replace('ô', 'o').replace('õ', 'o')
+    s = s.replace('ú', 'u').replace('ü', 'u')
+    s = s.replace('ç', 'c')
+    # 3. Substituir sequências de não-alfanuméricos por '_'
+    s = re.sub(r'[^a-z0-9]+', '_', s)
+    # 4. Remover '_' no início/fim
+    return s.strip('_')
+
+def render_instancia_descricao(item_orcamento):
+    """Renderiza a descrição para uma linha de instância (nível 1.1.1) usando o template de instância.
+       Foca-se nos atributos.
+    """
+    if not item_orcamento.instancia:
+        return "Instância de item inválida"
+
+    instancia = item_orcamento.instancia
+    template_produto = instancia.configuracao.template
+    template_str = template_produto.descricao_instancia_template
+
+    # Fallback se não houver template: gera uma descrição simples dos atributos.
+    if not template_str or "{{" not in template_str:
+        numeric_attrs = []
+        non_numeric_attrs = []
+        for attr_instancia in instancia.atributos.all():
+            if attr_instancia.template_atributo.atributo.tipo == 'num' and attr_instancia.valor_num is not None:
+                numeric_attrs.append(str(int(attr_instancia.valor_num)))
+            elif attr_instancia.template_atributo.atributo.tipo == 'str' and attr_instancia.valor_texto:
+                non_numeric_attrs.append(attr_instancia.valor_texto)
+        
+        description = ' '.join(non_numeric_attrs)
+        if numeric_attrs:
+            description += f" ({'x'.join(numeric_attrs)})mm"
+        return description.strip()
+
+    # Construir contexto com atributos
+    context_data = {}
+    for ia in instancia.atributos.all():
+        attr_name = _sanitize_name(ia.template_atributo.atributo.nome)
+        valor = ia.valor_num if ia.template_atributo.atributo.tipo == 'num' else ia.valor_texto
+        if isinstance(valor, decimal.Decimal) and valor == valor.to_integral_value():
+            valor = int(valor)
+        context_data[attr_name] = valor
+
+    # Renderizar
+    try:
+        template = Template(template_str)
+        context = Context(context_data)
+        return template.render(context)
+    except Exception as e:
+        return f"[ERRO NO TEMPLATE DE INSTÂNCIA: {e}]"
+
+def render_configuracao_descricao(configuracao):
+    """Renderiza a descrição para uma linha de configuração (nível 1.1) usando o template de configuração.
+       Foca-se nos componentes.
+    """
+    template_str = configuracao.descricao_configuracao_template
+
+    # Fallback se não houver template: retorna o nome da configuração.
+    if not template_str or "{{" not in template_str:
+        return configuracao.nome
+
+    # Construir contexto com componentes
+    componentes_context = {}
+    for escolha in configuracao.componentes_escolha.all():
+        componente_template_name = _sanitize_name(escolha.template_componente.componente.nome)
+        descricao_componente = escolha.descricao_personalizada or escolha.componente_real.nome
+        componentes_context[componente_template_name] = descricao_componente
+    
+    context_data = {'componentes': componentes_context}
+
+    # Renderizar
+    try:
+        template = Template(template_str)
+        context = Context(context_data)
+        return template.render(context)
+    except Exception as e:
+        return f"[ERRO NO TEMPLATE DE CONFIGURAÇÃO: {e}]"
 
 def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral_orcamento):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
@@ -98,55 +199,70 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
 
         current_row = 9
         
-        # Re-group items for Excel export based on the new hierarchy
-        # This logic should ideally be done in the view and passed already grouped
-        # For now, a simplified grouping for demonstration
+        # --- Nova Lógica de Agrupamento Hierárquico ---
         grouped_items = {}
         for item in itens_orcamento:
-            if item.configuracao: # This is a parent item (configuration)
-                config_key = (item.configuracao.template.categoria.nome, item.configuracao.nome)
-                if config_key not in grouped_items:
-                    grouped_items[config_key] = {
-                        'parent_item': item,
-                        'instances': []
-                    }
-            elif item.instancia and item.instancia.configuracao: # This is an instance item
-                config_key = (item.instancia.configuracao.template.categoria.nome, item.instancia.configuracao.nome)
-                if config_key not in grouped_items:
-                     # If a config parent doesn't exist, create a dummy one for grouping
-                    grouped_items[config_key] = {
-                        'parent_item': None, # No explicit parent ItemOrcamento for this config
-                        'instances': []
-                    }
-                grouped_items[config_key]['instances'].append(item)
+            if item.instancia and item.instancia.configuracao:
+                config = item.instancia.configuracao
+                categoria_nome = config.template.categoria.nome
 
+                # Nível 1: Garantir que a Categoria existe no dicionário
+                if categoria_nome not in grouped_items:
+                    grouped_items[categoria_nome] = {}
+
+                # Nível 2: Garantir que a Configuração existe na Categoria
+                if config.id not in grouped_items[categoria_nome]:
+                    grouped_items[categoria_nome][config.id] = {
+                        'config_obj': config,
+                        'instances': []
+                    }
+                
+                # Adicionar a instância à lista correta
+                grouped_items[categoria_nome][config.id]['instances'].append(item)
+
+        # --- Nova Lógica de Escrita no Excel ---
         category_counter = 0
-        for (categoria_nome, config_nome), data in grouped_items.items():
+        for categoria_nome, configs_data in grouped_items.items():
             category_counter += 1
             
-            # Write Category/Configuration Header
+            # Nível 1: Artigo (Categoria)
             sheet.insert_rows(current_row)
             for col_idx in range(1, 8):
                 copy_style(category_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
             sheet.cell(row=current_row, column=1).value = f"{category_counter}"
-            sheet.cell(row=current_row, column=2).value = f"{categoria_nome} - {config_nome}"
+            sheet.cell(row=current_row, column=2).value = categoria_nome
             current_row += 1
 
-            instance_counter = 0
-            for item in data['instances']:
-                instance_counter += 1
+            config_counter = 0
+            for config_id, config_data in configs_data.items():
+                config_counter += 1
+                config_obj = config_data['config_obj']
+                instances = config_data['instances']
+
+                # Nível 2: Template + Configuração
                 sheet.insert_rows(current_row)
                 for col_idx in range(1, 8):
-                    copy_style(instance_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
-                sheet.cell(row=current_row, column=1).value = f"{category_counter}.{instance_counter}"
-                sheet.cell(row=current_row, column=2).value = _formatar_detalhes_item_ficha(item) # Use the updated formatter
-                sheet.cell(row=current_row, column=3).value = item.instancia.configuracao.template.unidade or ''
-                sheet.cell(row=current_row, column=4).value = item.quantidade
-                sheet.cell(row=current_row, column=5).value = float(item.preco_unitario) if item.preco_unitario is not None else 0.0
-                sheet.cell(row=current_row, column=6).value = float(item.total) if item.total is not None else 0.0
+                    copy_style(template_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
+                sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}"
+                sheet.cell(row=current_row, column=2).value = render_configuracao_descricao(config_obj)
                 current_row += 1
 
-        # Remover as 3 linhas de modelo originais (9, 10, 11) que agora estão abaixo dos dados inseridos
+                # Nível 3: Instância/Atributos
+                instance_counter = 0
+                for item in instances:
+                    instance_counter += 1
+                    sheet.insert_rows(current_row)
+                    for col_idx in range(1, 8):
+                        copy_style(instance_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
+                    
+                    sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}.{instance_counter}"
+                    sheet.cell(row=current_row, column=2).value = render_instancia_descricao(item)
+                    sheet.cell(row=current_row, column=3).value = item.instancia.configuracao.template.unidade or ''
+                    sheet.cell(row=current_row, column=4).value = item.quantidade
+                    sheet.cell(row=current_row, column=5).value = float(item.preco_unitario) if item.preco_unitario is not None else 0.0
+                    sheet.cell(row=current_row, column=6).value = float(item.total) if item.total is not None else 0.0
+                    current_row += 1
+
         sheet.delete_rows(current_row, 3)
 
         clauses_workbook = openpyxl.load_workbook(clauses_path)
@@ -188,12 +304,10 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
 
-        # Preencher informações do cabeçalho
         sheet['B3'] = orcamento.nome_cliente or ''
         sheet['B4'] = f"Obra: {orcamento.codigo_legado or ''}"
         sheet['B5'] = orcamento.codigo_legado or ''
 
-        # Capturar estilos das linhas modelo
         item_model_row_styles = [copy(sheet.cell(row=9, column=col_idx)) for col_idx in range(1, 8)]
 
         current_row = 9
@@ -204,8 +318,7 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
             for col_idx in range(1, 8):
                 copy_style(item_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
             
-            # Formatar e inserir os detalhes do item
-            detalhes_item = _formatar_detalhes_item_ficha(item)
+            detalhes_item = _formatar_detalhes_item_ficha_producao(item)
             cell = sheet.cell(row=current_row, column=2, value=detalhes_item)
             cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
 
@@ -213,7 +326,6 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
             sheet.cell(row=current_row, column=3).value = item.quantidade
             current_row += 1
 
-        # Remover a linha de modelo original
         sheet.delete_rows(current_row, 1)
 
         output = io.BytesIO()

@@ -30,7 +30,11 @@ urlpatterns = [
     path('operadores/<int:pk>/editar/', views.OperadorUpdateView.as_view(), name='operador_update'),
     path('operadores/<int:pk>/excluir/', views.OperadorDeleteView.as_view(), name='operador_delete'),
 
+    # API Endpoints para a Dashboard
+    path('api/obra/<int:obra_id>/detalhes/', views.get_consumos_por_obra_api, name='api_get_consumos_por_obra'),
+
     # Relatórios
+    path('relatorios/kpis/', views.kpi_dashboard, name='kpi_dashboard'),
     path('relatorios/consumo-material/', views.MaterialConsumptionReportView.as_view(), name='material_consumption_report'),
     path('relatorios/consumo-material/exportar/', views.exportar_material_consumption_excel, name='exportar_material_consumption_excel'),
     path('relatorios/utilizacao-maquina/', views.MachineUtilizationReportView.as_view(), name='machine_utilization_report'),

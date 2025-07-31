@@ -1,27 +1,26 @@
-feat: Comprehensive System Overhaul - Budgeting Components & Consumption Tracking
+feat: Implement dynamic descriptions and KPI dashboard
 
-This commit introduces a major overhaul of the system, integrating advanced budgeting component management and a new consumption tracking module.
+This commit introduces two main features and several improvements:
 
-Key Enhancements:
+**Features:**
 
-Budgeting System (as per 0.1.1.txt and 0.1.2.txt):
-- Implemented a flexible Product Configuration architecture, allowing multiple component and finish variations for base product templates.
-- Enhanced item addition flow: Category -> Template -> Configuration -> Attributes.
-- Developed a "Configuration Manager" for creating/editing product configurations, including component selection and quantity definition.
-- Introduced a "Margin Manager" to define item unit prices based on raw material, component, finish, labor, and assembly costs.
-- Updated Excel export for budgets to reflect the new product configuration hierarchy and production sheet generation.
-- Refactored product models to support Component, ProductConfiguration, and InstanceComponent relationships.
+1.  **Dynamic Budget Descriptions:**
+    *   Adds template fields to the `ProdutoTemplate` and `ProdutoConfiguracao` models.
+    *   Allows creating formatted descriptions for budget items and configurations using attribute and component variables (e.g., `{{ altura }}`, `{{ componentes.fechadura }}`).
+    *   The rendering logic is applied to both the Excel export and the web interface for consistent presentation.
 
-Consumption Tracking System:
-- Added a new "Consumos" (Consumption) application to manage material consumption and work sessions.
-- Implemented models for Work Sessions (SessaoTrabalho), Workstations (PostoTrabalho), Operators (Operador), and Material Consumption Records (ItemConsumido).
-- Developed views and templates for CRUD operations on consumption data.
-- Integrated reporting functionalities for Material Consumption and Machine Utilization.
-- Enabled Excel export for consumption reports, including detailed descriptions for consumed items.
-- Improved UI for the consumption home page, separating management and reporting sections.
+2.  **Consumption KPI Dashboard:**
+    *   Creates a new dashboard page at `/consumos/relatorios/kpis/`.
+    *   Implements an API endpoint for consumption details per project (`obra`).
+    *   Displays the following KPIs:
+        *   Total Production Time.
+        *   Tables for Production Time by Workstation and by Operator.
+        *   Table for Average Time per Operation.
+        *   An interactive section to view detailed material consumption per project, with a dropdown for selection.
 
-General Improvements:
-- Updated `.gitignore` to properly exclude development artifacts and temporary files, ensuring a cleaner repository.
-- Refactored `__str__` methods in several models for better representation and error handling.
+**Fixes & Refactoring:**
 
-This release significantly expands the system's capabilities, moving towards a more comprehensive management solution for production and resource tracking.
+*   Fixes the normalization of template variable names to handle accents and special characters.
+*   Refactors the `editar_orcamento` view and the Excel export to support the new description and hierarchical numbering logic.
+*   Improves UI consistency by moving the dashboard link to the reports section.
+*   Resolves various `IndentationError` and `TemplateSyntaxError` issues that arose during development.

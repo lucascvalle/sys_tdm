@@ -24,7 +24,7 @@ class FormulaTemplateInline(admin.StackedInline):
 class ConfiguracaoComponenteEscolhaInline(admin.TabularInline):
     model = ConfiguracaoComponenteEscolha
     extra = 1
-    fields = ('template_componente', 'componente_real')
+    fields = ('template_componente', 'componente_real', 'descricao_personalizada')
 
 class InstanciaAtributoInline(admin.TabularInline):
     model = InstanciaAtributo

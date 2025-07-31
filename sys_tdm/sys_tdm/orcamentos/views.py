@@ -9,6 +9,7 @@ from datetime import datetime
 from .excel_utils import (
     exportar_orcamento_excel as export_excel_util,
     exportar_ficha_producao_excel as export_ficha_producao_util,
+    render_instancia_descricao,
 )
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -93,79 +94,58 @@ def criar_orcamento(request):
 @login_required
 def editar_orcamento(request, orcamento_id):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
-    itens_orcamento = orcamento.itens.all().select_related('configuracao__template', 'instancia__configuracao__template').prefetch_related('instancia__atributos__template_atributo__atributo')
-    
-    total_geral_orcamento = 0
-    for item in itens_orcamento:
-        total_geral_orcamento += item.total
+    itens_orcamento = orcamento.itens.all().select_related(
+        'configuracao__template__categoria', 
+        'instancia__configuracao__template__categoria'
+    ).prefetch_related('instancia__atributos__template_atributo__atributo')
 
-    todas_configuracoes = ProdutoConfiguracao.objects.all().select_related('template')
-    todas_categorias = Categoria.objects.all() # Fetch all categories
-
-    # New grouping logic
+    # --- Lógica de Agrupamento e Geração de Código Hierárquico ---
     grouped_items = {}
-    # First, create a flat map of all items by their ID for easy lookup
-    item_map = {item.id: item for item in itens_orcamento}
-
-    # Function to recursively build the hierarchy
-    def build_item_hierarchy(item):
-        item_data = {
-            'item': item,
-            'children': []
-        }
-        # Find children of the current item
-        for child_item in [i for i in itens_orcamento if i.parent_id == item.id]:
-            item_data['children'].append(build_item_hierarchy(child_item))
-        return item_data
-
-    # Group by category and then by configuration, and then build hierarchy
     for item in itens_orcamento:
-        if item.parent is None: # Only process top-level items here
-            if item.instancia:
-                instancia = item.instancia
-                configuracao = instancia.configuracao
-                template = configuracao.template
-                categoria = template.categoria
+        if item.instancia and item.instancia.configuracao:
+            config = item.instancia.configuracao
+            categoria_nome = config.template.categoria.nome
+            if categoria_nome not in grouped_items:
+                grouped_items[categoria_nome] = {}
+            if config.id not in grouped_items[categoria_nome]:
+                grouped_items[categoria_nome][config.id] = []
+            grouped_items[categoria_nome][config.id].append(item)
 
-                if categoria.nome not in grouped_items:
-                    grouped_items[categoria.nome] = {}
+    category_counter = 0
+    for categoria_nome, configs in grouped_items.items():
+        category_counter += 1
+        config_counter = 0
+        for config_id, instances in configs.items():
+            config_counter += 1
+            instance_counter = 0
+            for item in instances:
+                instance_counter += 1
+                item.codigo_hierarquico = f"{category_counter}.{config_counter}.{instance_counter}"
 
-                config_key = f"{template.nome} - {configuracao.nome}"
-                if config_key not in grouped_items[categoria.nome]:
-                    grouped_items[categoria.nome][config_key] = []
-                
-                grouped_items[categoria.nome][config_key].append(build_item_hierarchy(item))
-            elif item.configuracao: # This handles parent items that are directly configurations
-                configuracao = item.configuracao
-                template = configuracao.template
-                categoria = template.categoria
+    # --- Fim da Lógica de Geração de Código ---
 
-                if categoria.nome not in grouped_items:
-                    grouped_items[categoria.nome] = {}
-                
-                config_key = f"{template.nome} - {configuracao.nome}"
-                if config_key not in grouped_items[categoria.nome]:
-                    grouped_items[categoria.nome][config_key] = []
-                
-                grouped_items[categoria.nome][config_key].append(build_item_hierarchy(item))
-            else: # Generic items
-                if 'Outros' not in grouped_items:
-                    grouped_items['Outros'] = {'Itens Genéricos': []}
-                grouped_items['Outros']['Itens Genéricos'].append(build_item_hierarchy(item))
+    total_geral_orcamento = sum(item.total for item in itens_orcamento)
 
+    # Anexa a descrição renderizada para cada item
+    for item in itens_orcamento:
+        if not hasattr(item, 'codigo_hierarquico'): # Garante que itens sem grupo tenham um código
+            item.codigo_hierarquico = "-"
+        if item.instancia:
+            item.descricao_renderizada = render_instancia_descricao(item)
+        elif item.configuracao:
+            item.descricao_renderizada = item.configuracao.nome
+        else:
+            item.descricao_renderizada = item.codigo_item_manual or "Item genérico"
+
+    todas_categorias = Categoria.objects.all()
 
     if request.method == 'POST':
         is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
-        print(f"DEBUG: X-Requested-With header: {request.headers.get('x-requested-with')}, is_ajax: {is_ajax}")
-        sys.stdout.flush()
-
-        # Determinar de onde obter os dados do formulário
+        
         form_data = request.POST
         if request.content_type == 'application/json':
             try:
                 form_data = json.loads(request.body)
-                print(f"DEBUG: Dados JSON recebidos: {form_data}")
-                sys.stdout.flush()
             except json.JSONDecodeError:
                 message = "Erro: Requisição JSON inválida."
                 messages.error(request, message)
@@ -188,7 +168,7 @@ def editar_orcamento(request, orcamento_id):
                 configuracao_id = form_data.get('configuracao')
                 quantidade = int(form_data.get('quantidade', 1))
                 preco_unitario = float(form_data.get('preco_unitario') or '0')
-                margem_negocio = float(form_data.get('margem_negocio', 0)) # Get margem_negocio from form
+                margem_negocio = float(form_data.get('margem_negocio', 0))
 
                 if not configuracao_id:
                     messages.error(request, "Erro: Nenhuma configuração de produto selecionada.")
@@ -198,14 +178,12 @@ def editar_orcamento(request, orcamento_id):
 
                 configuracao = get_object_or_404(ProdutoConfiguracao, pk=configuracao_id)
 
-                # Criar a ProdutoInstancia
                 nova_instancia = ProdutoInstancia.objects.create(
                     configuracao=configuracao,
                     codigo=f"{configuracao.nome}-{orcamento.id}-{itens_orcamento.count() + 1}",
-                    quantidade=1 # A quantidade da instância do produto é sempre 1, a quantidade do item no orçamento é que varia
+                    quantidade=1
                 )
 
-                # Criar InstanciaAtributo para a nova instância
                 for template_atributo in configuracao.template.atributos.all():
                     valor = form_data.get(f'atributo_{template_atributo.id}')
                     if valor is not None and valor != '':
@@ -228,7 +206,6 @@ def editar_orcamento(request, orcamento_id):
                                 valor_texto=valor
                             )
 
-                # Criar InstanciaComponente com base nas fórmulas do TemplateComponente
                 atributos_instancia_context = {}
                 for ia in nova_instancia.atributos.all():
                     attr_name_for_formula = ia.template_atributo.atributo.nome.lower().replace(' ', '_')
@@ -248,13 +225,13 @@ def editar_orcamento(request, orcamento_id):
                             context = {
                                 "__builtins__": None,
                                 'math': math,
-                                'folhas': atributos_instancia_context.get('folhas', 0), # Garante que 'folhas' seja 0 se não existir
+                                'folhas': atributos_instancia_context.get('folhas', 0),
                             }
                             context.update(atributos_instancia_context)
 
                             if tc.atributo_relacionado:
                                 nome_atributo_relacionado = tc.atributo_relacionado.atributo.nome.lower().replace(' ', '_')
-                                context['valor_atributo'] = atributos_instancia_context.get(nome_atributo_relacionado, 0) # Garante que 'valor_atributo' seja 0 se não existir
+                                context['valor_atributo'] = atributos_instancia_context.get(nome_atributo_relacionado, 0)
 
                             resultado_formula = eval(tc.formula_calculo, context)
                             quantidade_componente = float(resultado_formula)
@@ -267,7 +244,6 @@ def editar_orcamento(request, orcamento_id):
                     
                     quantidade_componente *= (1 + float(tc.fator_perda))
 
-                    # Encontrar o componente real escolhido para esta configuração
                     componente_real_escolhido = configuracao.componentes_escolha.filter(template_componente=tc).first()
                     if componente_real_escolhido:
                         InstanciaComponente.objects.create(
@@ -284,7 +260,7 @@ def editar_orcamento(request, orcamento_id):
                     instancia=nova_instancia,
                     quantidade=quantidade,
                     preco_unitario=preco_unitario,
-                    margem_negocio=margem_negocio # Save margem_negocio
+                    margem_negocio=margem_negocio
                 )
 
                 messages.success(request, "Item adicionado com sucesso!")
@@ -306,8 +282,7 @@ def editar_orcamento(request, orcamento_id):
     context = {
         'orcamento': orcamento,
         'orcamento_form': orcamento_form,
-        'itens_orcamento': itens_orcamento, # Keep for now, might be removed later if grouped_items is sufficient
-        'grouped_items': grouped_items,
+        'itens_orcamento': itens_orcamento,
         'todas_categorias': todas_categorias,
         'total_geral_orcamento': total_geral_orcamento,
     }
@@ -714,6 +689,13 @@ def get_item_details(request, item_id):
 @login_required
 def get_item_row_html(request, item_id):
     item = get_object_or_404(ItemOrcamento, pk=item_id)
+    # Anexa a descrição renderizada para ser usada no template _item_row.html
+    if item.instancia:
+        item.descricao_renderizada = render_instancia_descricao(item)
+    elif item.configuracao:
+        item.descricao_renderizada = item.configuracao.nome
+    else:
+        item.descricao_renderizada = item.codigo_item_manual or "Item genérico"
     return render(request, 'orcamentos/_item_row.html', {'item': item})
 
 @login_required

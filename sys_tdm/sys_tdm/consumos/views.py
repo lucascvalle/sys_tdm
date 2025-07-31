@@ -1,10 +1,92 @@
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, TemplateView
 from django.views.generic.edit import FormMixin
-from django.db.models import Sum
+from django.db.models import Sum, F, Avg, Count, Q
+from django.db.models.functions import Coalesce
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from datetime import date, timedelta
+
 from .models import FichaConsumoObra, SessaoTrabalho, PostoTrabalho, Operador, ItemConsumido
 from .forms import FichaConsumoObraForm, SessaoTrabalhoForm, PostoTrabalhoForm, OperadorForm, ItemConsumidoForm, MaterialConsumptionReportFilterForm, MachineUtilizationReportFilterForm
-from .excel_utils import exportar_consumo_material_excel, exportar_utilizacao_maquina_excel
+
+@login_required
+def kpi_dashboard(request):
+    """
+    View para a dashboard de KPIs.
+    """
+    sessoes_completas = SessaoTrabalho.objects.filter(hora_saida__isnull=False)
+
+    # KPI 1: Tempo de Produção Total (Agregado)
+    tempo_total_producao_delta = sessoes_completas.aggregate(
+        total_duracao=Sum(F('hora_saida') - F('hora_inicio'))
+    )['total_duracao'] or timedelta(0)
+    tempo_total_producao_horas = tempo_total_producao_delta.total_seconds() / 3600
+
+    # KPI 2: Tempo de Produção por Posto de Trabalho
+    tempo_por_posto = PostoTrabalho.objects.annotate(
+        total_producao=Coalesce(Sum(F('sessoes_trabalho__hora_saida') - F('sessoes_trabalho__hora_inicio'), filter=Q(sessoes_trabalho__hora_saida__isnull=False)), timedelta(0))
+    ).order_by('-total_producao')
+    for posto in tempo_por_posto:
+        posto.total_producao_horas = posto.total_producao.total_seconds() / 3600
+
+    # KPI 3: Tempo de Produção por Operador
+    tempo_por_operador = Operador.objects.annotate(
+        total_producao=Coalesce(Sum(F('sessoes_trabalho__hora_saida') - F('sessoes_trabalho__hora_inicio'), filter=Q(sessoes_trabalho__hora_saida__isnull=False)), timedelta(0))
+    ).order_by('-total_producao')
+    for operador in tempo_por_operador:
+        operador.total_producao_horas = operador.total_producao.total_seconds() / 3600
+
+    # KPI 4: Tempo Médio por Operação
+    tempo_medio_por_operacao = sessoes_completas.values('operacao').annotate(
+        duracao_media=Avg(F('hora_saida') - F('hora_inicio')),
+        num_execucoes=Count('id')
+    ).order_by('-duracao_media')
+    for operacao in tempo_medio_por_operacao:
+        if operacao['duracao_media']:
+            operacao['duracao_media_minutos'] = operacao['duracao_media'].total_seconds() / 60
+        else:
+            operacao['duracao_media_minutos'] = 0
+
+    # Obter todas as fichas de obra para o dropdown
+    todas_as_obras = FichaConsumoObra.objects.all().order_by('-data_inicio')
+
+    context = {
+        'tempo_total_producao_horas': tempo_total_producao_horas,
+        'tempo_por_posto': tempo_por_posto,
+        'tempo_por_operador': tempo_por_operador,
+        'tempo_medio_por_operacao': tempo_medio_por_operacao,
+        'todas_as_obras': todas_as_obras,
+    }
+    return render(request, 'consumos/kpi_dashboard.html', context)
+
+
+from django.http import JsonResponse
+
+def get_consumos_por_obra_api(request, obra_id):
+    """
+    Endpoint da API para retornar os detalhes de consumo de uma obra específica.
+    """
+    try:
+        ficha_obra = FichaConsumoObra.objects.get(pk=obra_id)
+        itens_consumidos = ItemConsumido.objects.filter(ficha_obra=ficha_obra).select_related('componente')
+
+        data = {
+            'ref_obra': ficha_obra.ref_obra,
+            'previsao_entrega': ficha_obra.previsao_entrega.strftime('%d/%m/%Y') if ficha_obra.previsao_entrega else 'N/A',
+            'itens': [
+                {
+                    'componente': item.componente.nome if item.componente else 'Item sem componente associado',
+                    'quantidade': item.quantidade,
+                    'unidade': item.unidade,
+                }
+                for item in itens_consumidos
+            ]
+        }
+        return JsonResponse(data)
+    except FichaConsumoObra.DoesNotExist:
+        return JsonResponse({'error': 'Obra não encontrada.'}, status=404)
+
 
 class ConsumosHomeView(TemplateView):
     template_name = 'consumos/consumos_home.html'

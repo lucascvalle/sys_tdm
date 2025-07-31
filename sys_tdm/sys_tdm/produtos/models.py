@@ -34,7 +34,10 @@ class Componente(models.Model):
 class ProdutoTemplate(models.Model):
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name='templates')
     nome = models.CharField(max_length=200)
-    descricao = models.TextField(blank=True)
+    descricao_instancia_template = models.TextField(
+        blank=True, 
+        help_text="Template para a descrição da instância individual (ex: para a linha do orçamento). Use variáveis de atributos como {{ altura }}."
+    )
     unidade = models.CharField(max_length=50, blank=True, null=True, help_text="Unidade de medida do produto (ex: m², unidade, kg)")
 
     def __str__(self):
@@ -90,14 +93,28 @@ class FormulaTemplate(models.Model):
 class ProdutoConfiguracao(models.Model):
     template = models.ForeignKey(ProdutoTemplate, on_delete=models.PROTECT, related_name='configuracoes')
     nome = models.CharField(max_length=255, help_text="Ex: Acabamento Fosco, Dobradiças Standard")
+    descricao_configuracao_template = models.TextField(
+        blank=True,
+        help_text="Template para a descrição da configuração (ex: para o agrupador no orçamento). Use variáveis de componentes como {{ componentes.fechadura }}."
+    )
     
     def __str__(self):
         return f"{self.template.nome} - {self.nome}"
+
+    def get_detailed_description(self):
+        description_parts = [f"Configuração: {self.nome}"]
+        if self.componentes_escolha.exists():
+            description_parts.append("Componentes:")
+            for escolha in self.componentes_escolha.all():
+                component_display_name = escolha.descricao_personalizada or escolha.componente_real.nome
+                description_parts.append(f"  - {escolha.template_componente.componente.nome}: {component_display_name}")
+        return "\n".join(description_parts)
 
 class ConfiguracaoComponenteEscolha(models.Model):
     configuracao = models.ForeignKey(ProdutoConfiguracao, on_delete=models.CASCADE, related_name='componentes_escolha')
     template_componente = models.ForeignKey(TemplateComponente, on_delete=models.PROTECT) # Qual regra de componente do template
     componente_real = models.ForeignKey(Componente, on_delete=models.PROTECT) # Qual componente real usar
+    descricao_personalizada = models.CharField(max_length=255, blank=True, null=True, help_text="Descrição personalizada para este componente na configuração (ex: 'LAC. RAL 9010', 'REF JNF XPTO')")
 
     class Meta:
         unique_together = ('configuracao', 'template_componente')

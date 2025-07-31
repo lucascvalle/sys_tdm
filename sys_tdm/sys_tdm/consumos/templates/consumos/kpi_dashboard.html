@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard de KPIs - Consumos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mt-4">Dashboard de KPIs de Consumo e Produção</h1>
+    <p class="lead mb-4">Análise de performance da produção e consumo de materiais.</p>
+
+    <div class="row">
+        <!-- Aqui entrarão os cartões com os KPIs principais -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Tempo de Produção Total (Horas)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ tempo_total_producao_horas|floatformat:2 }} Horas</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mais cartões de KPI aqui -->
+
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Tempo de Produção por Posto de Trabalho</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Posto de Trabalho / Máquina</th>
+                                    <th>Tempo Total de Produção (Horas)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for posto in tempo_por_posto %}
+                                <tr>
+                                    <td>{{ posto.nome }}</td>
+                                    <td>{{ posto.total_producao_horas|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="2">Nenhum dado de produção encontrado.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Produtividade por Operador</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Operador</th>
+                                    <th>Tempo Total de Produção (Horas)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for operador in tempo_por_operador %}
+                                <tr>
+                                    <td>{{ operador.nome }}</td>
+                                    <td>{{ operador.total_producao_horas|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="2">Nenhum dado de produção encontrado.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Tempo Médio por Operação</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Operação</th>
+                                    <th>Nº de Execuções</th>
+                                    <th>Tempo Médio (minutos)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for operacao in tempo_medio_por_operacao %}
+                                <tr>
+                                    <td>{{ operacao.operacao }}</td>
+                                    <td>{{ operacao.num_execucoes }}</td>
+                                    <td>{{ operacao.duracao_media_minutos|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3">Nenhum dado de operação encontrado.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Detalhe de Consumo por Obra</h6>
+                    <div class="dropdown no-arrow">
+                        <select id="obra-consumo-select" class="form-control form-control-sm">
+                            <option value="">Selecione uma obra...</option>
+                            {% for obra in todas_as_obras %}
+                                <option value="{{ obra.id }}">{{ obra.ref_obra }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="detalhe-obra-content" style="display: none;">
+                        <p><strong>Previsão de Entrega:</strong> <span id="previsao-entrega-span"></span></p>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>Componente / Matéria-Prima</th>
+                                        <th>Quantidade Consumida</th>
+                                        <th>Unidade</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="consumo-obra-tbody">
+                                    <!-- Linhas da tabela serão inseridas aqui via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="detalhe-obra-placeholder">
+                        <p class="text-center text-muted">Selecione uma obra para ver os detalhes de consumo.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const obraSelect = document.getElementById('obra-consumo-select');
+    const contentDiv = document.getElementById('detalhe-obra-content');
+    const placeholderDiv = document.getElementById('detalhe-obra-placeholder');
+    const previsaoSpan = document.getElementById('previsao-entrega-span');
+    const tbody = document.getElementById('consumo-obra-tbody');
+
+    obraSelect.addEventListener('change', function() {
+        const obraId = this.value;
+
+        if (!obraId) {
+            contentDiv.style.display = 'none';
+            placeholderDiv.style.display = 'block';
+            return;
+        }
+
+        fetch(`/consumos/api/obra/${obraId}/detalhes/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                previsaoSpan.textContent = data.previsao_entrega;
+                tbody.innerHTML = ''; // Limpa a tabela
+
+                if (data.itens && data.itens.length > 0) {
+                    data.itens.forEach(item => {
+                        const row = `<tr>
+                                        <td>${item.componente}</td>
+                                        <td>${item.quantidade}</td>
+                                        <td>${item.unidade}</td>
+                                     </tr>`;
+                        tbody.insertAdjacentHTML('beforeend', row);
+                    });
+                } else {
+                    const row = `<tr><td colspan="3" class="text-center">Nenhum consumo registado para esta obra.</td></tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                }
+
+                placeholderDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error fetching obra details:', error);
+                placeholderDiv.innerHTML = '<p class="text-center text-danger">Ocorreu um erro ao buscar os detalhes da obra.</p>';
+                placeholderDiv.style.display = 'block';
+                contentDiv.style.display = 'none';
+            });
+    });
+});
+</script>
+{% endblock %}
+
+</div>

@@ -1,8 +1,8 @@
 {% load orcamentos_extras %}
 <tr>
-    <td>{{ item.codigo_item_manual|default:"-" }}</td>
+    <td>{{ item.codigo_hierarquico|default:"-" }}</td>
     <td>
-        {{ item|format_item_display_name }}
+        {{ item.descricao_renderizada|default:"-" }}
     </td>
     <td>{{ item.quantidade }}</td>
     <td id="item-preco-{{ item.id }}">{{ item.preco_unitario|floatformat:2 }} €</td>
