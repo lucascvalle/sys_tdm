@@ -34,7 +34,6 @@ def listar_produtos_template(request):
     if query:
         produtos_template = produtos_template.filter(
             Q(nome__icontains=query) |
-            Q(descricao__icontains=query) |
             Q(categoria__nome__icontains=query)
         ).distinct()
 
@@ -59,14 +58,63 @@ def criar_produto_template(request):
 
 # Views para ProdutoInstancia
 def listar_produto_instancias(request):
-    instancias = ProdutoInstancia.objects.all()
-    # Você pode adicionar lógica de busca aqui se necessário
-    return render(request, 'produtos/listar_produto_instancias.html', {'instancias': instancias})
+    instancias = ProdutoInstancia.objects.select_related(
+        'configuracao__template__categoria'
+    ).prefetch_related(
+        'itemorcamento_set__orcamento' # Assuming a reverse relation from ItemOrcamento to ProdutoInstancia
+    ).all()
+
+    categorias = Categoria.objects.all()
+
+    query = request.GET.get('q')
+    categoria_id = request.GET.get('categoria')
+    orcamento_nome = request.GET.get('orcamento_nome')
+
+    if query:
+        instancias = instancias.filter(
+            Q(codigo__icontains=query) |
+            Q(configuracao__nome__icontains=query)
+        ).distinct()
+
+    if categoria_id:
+        instancias = instancias.filter(configuracao__template__categoria__id=categoria_id)
+
+    if orcamento_nome:
+        instancias = instancias.filter(itemorcamento__orcamento__nome_cliente__icontains=orcamento_nome).distinct()
+
+    context = {
+        'instancias': instancias,
+        'categorias': categorias,
+        'query': query,
+        'selected_categoria': int(categoria_id) if categoria_id else None,
+        'orcamento_nome': orcamento_nome,
+    }
+    return render(request, 'produtos/listar_produto_instancias.html', context)
 
 # Views para ProdutoConfiguracao
 def listar_produto_configuracoes(request):
     configuracoes = ProdutoConfiguracao.objects.all()
-    return render(request, 'produtos/listar_produto_configuracoes.html', {'configuracoes': configuracoes})
+    categorias = Categoria.objects.all() # Get all categories for the filter dropdown
+
+    query = request.GET.get('q')
+    categoria_id = request.GET.get('categoria')
+
+    if query:
+        configuracoes = configuracoes.filter(
+            Q(nome__icontains=query) |
+            Q(descricao__icontains=query) # Assuming ProdutoConfiguracao has a description field
+        ).distinct()
+
+    if categoria_id:
+        configuracoes = configuracoes.filter(template__categoria__id=categoria_id)
+
+    context = {
+        'configuracoes': configuracoes,
+        'categorias': categorias,
+        'query': query,
+        'selected_categoria': int(categoria_id) if categoria_id else None,
+    }
+    return render(request, 'produtos/listar_produto_configuracoes.html', context)
 
 def criar_produto_configuracao(request):
     template_id = request.GET.get('template_id')

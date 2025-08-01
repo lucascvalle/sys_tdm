@@ -26,6 +26,10 @@
                             Postos de Trabalho
                             <small class="text-muted">Cadastre e gerencie os postos de trabalho e máquinas.</small>
                         </a>
+                        <a href="{% url 'estoque:ajustar_estoque' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            Ajuste de Estoque
+                            <small class="text-muted">Corrija manualmente as quantidades de itens em estoque.</small>
+                        </a>
                         <a href="{% url 'consumos:operador_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Operadores
                             <small class="text-muted">Cadastre e gerencie os operadores da fábrica.</small>

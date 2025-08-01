@@ -54,6 +54,7 @@ class AtributoAdmin(admin.ModelAdmin):
 class ComponenteAdmin(admin.ModelAdmin):
     list_display = ('nome', 'custo_unitario', 'unidade')
     search_fields = ('nome',)
+    filter_horizontal = ('itens_compativeis',)
 
 @admin.register(ProdutoTemplate)
 class ProdutoTemplateAdmin(admin.ModelAdmin):

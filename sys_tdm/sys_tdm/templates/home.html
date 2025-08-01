@@ -92,21 +92,21 @@
             </div>
         </div>
 
-        <!-- Card Admin -->
+        <!-- Card Estoque -->
         <div class="col-lg-6">
-            <div class="card h-100 border-secondary shadow-lg">
-                <div class="card-header bg-secondary text-white">
-                    <h2 class="h4 mb-0"><i class="bi bi-gear me-2"></i> Administração</h2>
+            <div class="card h-100 border-warning shadow-lg">
+                <div class="card-header bg-warning text-dark">
+                    <h2 class="h4 mb-0"><i class="bi bi-archive me-2"></i> Estoque</h2>
                 </div>
                 <div class="card-body">
-                    <h3 class="h5 text-secondary">Painel de Controle</h3>
+                    <h3 class="h5 text-warning">Gestão de Estoque</h3>
                     <p class="card-text">
-                        Área administrativa para gerenciamento do sistema, usuários e configurações.
-                        Acesso completo para administradores com ferramentas avançadas de gestão.
+                        Controle entradas, saídas, lotes e ajustes de inventário.
+                        Gerencie seu catálogo de itens e tenha uma visão clara dos seus recursos.
                     </p>
                     <div class="mt-4">
-                        <a href="/admin/" class="btn btn-secondary btn-lg px-4">
-                            <i class="bi bi-arrow-right-circle me-2"></i>Acessar Admin
+                        <a href="{% url 'estoque:home' %}" class="btn btn-warning btn-lg px-4">
+                            <i class="bi bi-arrow-right-circle me-2"></i>Acessar Estoque
                         </a>
                     </div>
                 </div>

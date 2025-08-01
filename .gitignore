@@ -17,3 +17,4 @@ static_collected/
 
 # Debugging/Temporary files
 debug_logs.txt
+debug_docker_logs.txt

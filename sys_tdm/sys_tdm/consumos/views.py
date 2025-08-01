@@ -69,14 +69,14 @@ def get_consumos_por_obra_api(request, obra_id):
     """
     try:
         ficha_obra = FichaConsumoObra.objects.get(pk=obra_id)
-        itens_consumidos = ItemConsumido.objects.filter(ficha_obra=ficha_obra).select_related('componente')
+        itens_consumidos = ItemConsumido.objects.filter(ficha_obra=ficha_obra).select_related('item_estocavel')
 
         data = {
             'ref_obra': ficha_obra.ref_obra,
             'previsao_entrega': ficha_obra.previsao_entrega.strftime('%d/%m/%Y') if ficha_obra.previsao_entrega else 'N/A',
             'itens': [
                 {
-                    'componente': item.componente.nome if item.componente else 'Item sem componente associado',
+                    'componente': item.item_estocavel.nome if item.item_estocavel else 'Item sem componente associado',
                     'quantidade': item.quantidade,
                     'unidade': item.unidade,
                 }
@@ -242,10 +242,10 @@ class MaterialConsumptionReportView(ListView):
 
         # Agrega os consumos por componente e unidade
         return queryset.values(
-            'componente__nome', 'unidade'
+            'item_estocavel__nome', 'unidade'
         ).annotate(
             total_quantidade=Sum('quantidade')
-        ).order_by('componente__nome')
+        ).order_by('item_estocavel__nome')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -279,10 +279,10 @@ def exportar_material_consumption_excel(request):
             filtros['previsao_entrega_ficha'] = ficha_obra.previsao_entrega.strftime('%d/%m/%Y')
 
     consumos_agregados = queryset.values(
-        'componente__nome', 'descricao_detalhada', 'unidade'
+        'item_estocavel__nome', 'descricao_detalhada', 'unidade'
     ).annotate(
         total_quantidade=Sum('quantidade')
-    ).order_by('componente__nome', 'descricao_detalhada')
+    ).order_by('item_estocavel__nome', 'descricao_detalhada')
 
     return exportar_consumo_material_excel(request, consumos_agregados, filtros)
 

@@ -11,18 +11,23 @@ O SysOrc é um sistema web integrado desenvolvido para otimizar a gestão de pro
 - **Descrições Dinâmicas**: Crie descrições de itens e configurações baseadas em templates, que são preenchidas automaticamente com os atributos e componentes do produto.
 - **Cálculos Automáticos**: Valores por item e total do orçamento calculados em tempo real.
 - **Versionamento de Orçamentos**: Crie novas versões de orçamentos existentes para rastreamento de revisões.
-- **Exportação para Excel**: Gere documentos de orçamento detalhados e fichas de produção em formato `.xlsx`.
+- **Exportação para Excel**: Gere documentos de orçamento detalhados e fichas de produção em formato `.xlsx` com formatação aprimorada e descrições de componentes detalhadas.
 - **Gestão de Preços e Margens**: Ferramentas para definir preços unitários com base em custos de fabricação e margens de negócio.
 - **Arquitetura de Configuração de Produto**: Suporte a variações complexas de produtos através de configurações e componentes.
 
 ### Módulo de Produtos
 - **Catálogo de Produtos e Componentes**: Gerencie categorias, atributos, templates de produtos e componentes.
-- **Configurações de Produto**: Defina configurações específicas para produtos, permitindo variações de componentes e atributos.
-- **Instâncias de Produto**: Crie instâncias de produtos com base em templates e configurações, com atributos e componentes calculados dinamicamente.
+- **Configurações de Produto**: Defina configurações específicas para produtos, permitindo variações de componentes e atributos. Inclui funcionalidade de filtragem por nome/descrição e categoria.
+- **Instâncias de Produto**: Crie instâncias de produtos com base em templates e configurações, com atributos e componentes calculados dinamicamente. Inclui funcionalidade de filtragem por código/configuração, categoria e nome do orçamento associado, além de exibir o nome do orçamento.
+
+### Módulo de Estoque
+- **Ajuste de Estoque**: Permite ajustar manualmente as quantidades de itens em estoque, registrando movimentos de ajuste (positivo ou negativo) para histórico.
+- **Gestão de Lotes**: Controle de entrada e saída de itens por lotes (FIFO).
+- **Movimentação de Estoque**: Registro detalhado de todas as transações de entrada, saída e ajuste para rastreabilidade completa.
 
 ### Módulo de Consumos
-- **Dashboard de KPIs**: Visualize indicadores de performance chave, como tempo de produção por posto e operador, tempo médio por operação e detalhes de consumo por obra.
-- **Registro de Consumo de Material**: Rastreie o consumo de matéria-prima e componentes por obra.
+- **Dashboard de KPIs**: Visualize indicadores de performance chave, como tempo de produção por posto e operador, tempo médio por operação e detalhes de consumo por obra. (Corrigido o carregamento de detalhes de consumo por obra).
+- **Registro de Consumo de Material**: Rastreie o consumo de matéria-prima e componentes por obra. (Corrigido o relatório de consumo de material).
 - **Registro de Sessões de Trabalho**: Monitore o uso de máquinas e o tempo de trabalho de operadores em postos específicos.
 - **Gestão de Postos de Trabalho e Operadores**: Cadastre e gerencie os recursos humanos e máquinas da fábrica.
 - **Relatórios de Consumo**: Visualize relatórios agregados de consumo de material e utilização de máquinas, com opção de exportação para Excel.
@@ -76,6 +81,7 @@ Após a configuração, o sistema estará acessível em `http://localhost:8000` 
 -   **Módulo de Orçamentos**: `http://localhost:8000/orcamentos/`
 -   **Módulo de Produtos**: `http://localhost:8000/produtos/`
 -   **Módulo de Consumos**: `http://localhost:8000/consumos/`
+-   **Módulo de Estoque**: `http://localhost:8000/estoque/`
 
 ## Contribuição
 

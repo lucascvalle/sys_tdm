@@ -42,7 +42,7 @@
                 <thead>
                     <tr>
                         <th>Data</th>
-                        <th>Componente</th>
+                        <th>Item de Estoque</th>
                         <th>Descrição Detalhada</th>
                         <th>Quantidade</th>
                         <th>Unidade</th>
@@ -53,7 +53,7 @@
                     {% for item in itens_consumidos %}
                     <tr>
                         <td>{{ item.data_consumo|date:"d/m/Y" }}</td>
-                        <td>{{ item.componente.nome }}</td>
+                        <td>{{ item.item_estocavel.nome }}</td>
                         <td>{{ item.descricao_detalhada|default:"-" }}</td>
                         <td>{{ item.quantidade }}</td>
                         <td>{{ item.unidade }}</td>

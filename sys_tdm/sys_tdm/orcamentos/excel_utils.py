@@ -6,9 +6,11 @@ from copy import copy
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import Border, Side
 from django.template import Template, Context
 import decimal
 import re
+from collections import defaultdict
 
 # Importações de modelos necessárias
 from orcamentos.models import Orcamento, ItemOrcamento
@@ -303,30 +305,143 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
     try:
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
+        initial_max_row = sheet.max_row # Store the initial max_row of the template before any insertions
 
         sheet['B3'] = orcamento.nome_cliente or ''
         sheet['B4'] = f"Obra: {orcamento.codigo_legado or ''}"
         sheet['B5'] = orcamento.codigo_legado or ''
 
-        item_model_row_styles = [copy(sheet.cell(row=9, column=col_idx)) for col_idx in range(1, 8)]
+        # Capture styles from model rows (assuming rows 9, 10, 11 are model rows)
+        category_model_row_styles = [copy(sheet.cell(row=9, column=col_idx)) for col_idx in range(1, 8)]
+        aggregated_components_model_row_styles = [copy(sheet.cell(row=10, column=col_idx)) for col_idx in range(1, 8)]
+        instance_model_row_styles = [copy(sheet.cell(row=11, column=col_idx)) for col_idx in range(1, 8)]
 
+        # Delete the model rows after capturing their styles
+        # Deleting from the highest row number first to avoid shifting issues
+        sheet.delete_rows(11, 1) # Delete row 11
+        sheet.delete_rows(10, 1) # Delete row 10
+        sheet.delete_rows(9, 1)  # Delete row 9
+
+        # Adjust current_row to reflect the new starting position for content
+        # If rows 9, 10, 11 were deleted, content that would have started at 12 now starts at 9
         current_row = 9
-        item_counter = 0
+        
+        # --- Nova Lógica de Agrupamento Hierárquico ---
+        grouped_items = {}
         for item in itens_orcamento:
-            item_counter += 1
-            sheet.insert_rows(current_row)
-            for col_idx in range(1, 8):
-                copy_style(item_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
-            
-            detalhes_item = _formatar_detalhes_item_ficha_producao(item)
-            cell = sheet.cell(row=current_row, column=2, value=detalhes_item)
-            cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
+            if item.instancia and item.instancia.configuracao:
+                config = item.instancia.configuracao
+                categoria_nome = config.template.categoria.nome
 
-            sheet.cell(row=current_row, column=1).value = f"{item_counter}"
-            sheet.cell(row=current_row, column=3).value = item.quantidade
+                if categoria_nome not in grouped_items:
+                    grouped_items[categoria_nome] = {}
+
+                if config.id not in grouped_items[categoria_nome]:
+                    grouped_items[categoria_nome][config.id] = {
+                        'config_obj': config,
+                        'instances': [],
+                        'aggregated_components': defaultdict(float)
+                    }
+                
+                grouped_items[categoria_nome][config.id]['instances'].append(item)
+                
+                # Agregação de componentes para o Nível 1.1
+                for ic in item.instancia.componentes.all():
+                    # Usar uma tupla (nome, unidade, descricao_detalhada) como chave para agregar
+                    component_key = (ic.componente.nome, ic.componente.unidade, ic.descricao_detalhada or '')
+                    grouped_items[categoria_nome][config.id]['aggregated_components'][component_key] += float(ic.quantidade) * item.quantidade # Multiplica pela quantidade do item no orçamento
+
+        # --- Nova Lógica de Escrita no Excel ---
+        category_counter = 0
+        for categoria_nome, configs_data in grouped_items.items():
+            category_counter += 1
+            
+            # Nível 1: Artigo (Categoria)
+            sheet.insert_rows(current_row) # Insert a new row at current_row, pushing existing content down
+            for col_idx in range(1, 8):
+                copy_style(category_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
+            sheet.cell(row=current_row, column=1).value = f"{category_counter}"
+            sheet.cell(row=current_row, column=2).value = categoria_nome
             current_row += 1
 
-        sheet.delete_rows(current_row, 1)
+            config_counter = 0
+            for config_id, config_data in configs_data.items():
+                config_counter += 1
+                config_obj = config_data['config_obj']
+                instances = config_data['instances']
+                aggregated_components = config_data['aggregated_components']
+
+                # Nível 1.1: Componentes Agregados
+                sheet.insert_rows(current_row) # Insert a new row at current_row
+                for col_idx in range(1, 8):
+                    copy_style(aggregated_components_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
+                sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}"
+                
+                components_list_str = """Componentes:
+"""
+                for (comp_name, comp_unit, comp_desc), total_qty in aggregated_components.items():
+                    unit_display = comp_unit
+                    if comp_desc:
+                        unit_display += f" - {comp_desc}"
+                    line = f"- {comp_name}: {total_qty:.2f} {unit_display}"
+                    components_list_str += line + "\n"
+                
+                cell = sheet.cell(row=current_row, column=2, value=components_list_str.strip())
+                cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
+                current_row += 1
+
+                # Nível 1.1.1: Instância/Atributos
+                instance_counter = 0
+                for item in instances:
+                    instance_counter += 1
+                    sheet.insert_rows(current_row) # Insert a new row at current_row
+                    for col_idx in range(1, 8):
+                        copy_style(instance_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
+                    
+                    sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}.{instance_counter}"
+                    sheet.cell(row=current_row, column=2).value = render_instancia_descricao(item)
+                    sheet.cell(row=current_row, column=3).value = item.instancia.configuracao.template.unidade or ''
+                    sheet.cell(row=current_row, column=4).value = item.quantidade
+                    current_row += 1
+        
+        # --- Cleanup and Add 5 Blank Rows at the End ---
+        # Delete all rows from current_row (where new content would start) to the original end of the template
+        # This clears any pre-existing content/placeholders below our dynamic content
+        if current_row <= initial_max_row: # Only delete if there are rows to delete
+            sheet.delete_rows(current_row, initial_max_row - current_row + 1)
+
+        # Load modelo_final_ficha.xlsx
+        final_ficha_path = settings.BASE_DIR / 'static' / 'excel_templates' / 'modelo_final_ficha.xlsx'
+        final_ficha_workbook = openpyxl.load_workbook(final_ficha_path)
+        final_ficha_sheet = final_ficha_workbook.active
+
+        # Copy content from modelo_final_ficha.xlsx (rows 1-5, columns A-G)
+        row_offset_final_ficha = current_row - 1 # Adjust offset for insertion
+        for r_idx in range(1, 6): # Rows 1 to 5
+            for c_idx in range(1, 8): # Columns A to G
+                source_cell = final_ficha_sheet.cell(row=r_idx, column=c_idx)
+                target_cell = sheet.cell(row=r_idx + row_offset_final_ficha, column=c_idx)
+                copy_cell(source_cell, target_cell)
+
+        # Copy merged cells from modelo_final_ficha.xlsx
+        for merged_range in final_ficha_sheet.merged_cells.ranges:
+            # Only copy if the merged range is within the copied area (rows 1-5, cols A-G)
+            if merged_range.min_row >= 1 and merged_range.max_row <= 5 and \
+               merged_range.min_col >= 1 and merged_range.max_col <= 7:
+                min_col_letter = get_column_letter(merged_range.min_col)
+                max_col_letter = get_column_letter(merged_range.max_col)
+                new_range_string = f"{min_col_letter}{merged_range.min_row + row_offset_final_ficha}:{max_col_letter}{merged_range.max_row + row_offset_final_ficha}"
+                sheet.merge_cells(new_range_string)
+
+        # Explicitly apply the border for the 5th row of the inserted content
+        # This corresponds to the underline in modelo_final_ficha.xlsx
+        underline_row_index = current_row + 4 # 5th row of the copied content
+        thin_border = Border(bottom=Side(style='thin'))
+        for col_idx in range(1, 8): # Columns A to G
+            cell = sheet.cell(row=underline_row_index, column=col_idx)
+            cell.border = thin_border
+
+        # No need to append 5 blank rows as modelo_final_ficha.xlsx content is added
 
         output = io.BytesIO()
         workbook.save(output)
@@ -339,6 +454,4 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
     except FileNotFoundError:
         messages.error(request, "O arquivo de template Excel para a ficha de produção (modelo_ficha_producao.xlsx) não foi encontrado.")
         return redirect('editar_orcamento', orcamento_id=orcamento.id)
-    except Exception as e:
-        messages.error(request, f"Erro ao exportar a ficha de produção: {e}")
-        return redirect('editar_orcamento', orcamento_id=orcamento.id)
+    

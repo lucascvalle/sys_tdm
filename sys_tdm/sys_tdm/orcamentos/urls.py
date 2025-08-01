@@ -11,7 +11,9 @@ urlpatterns = [
     path('<int:orcamento_id>/exportar/ficha-producao/', views.exportar_ficha_producao, name='exportar_ficha_producao'),
     path('<int:orcamento_id>/excluir/', views.excluir_orcamento, name='excluir_orcamento'),
     path('<int:orcamento_id>/versionar/', views.versionar_orcamento, name='versionar_orcamento'),
-    path('api/item/<int:item_id>/componentes/', views.get_item_components, name='get_item_components'),
+    path('<int:orcamento_id>/gerar-ficha/', views.gerar_ficha_producao, name='gerar_ficha_producao'),
+    
+    path('item/<int:item_id>/componentes/', views.get_item_components, name='get_item_components'),
     path('api/componente/<int:componente_id>/atualizar/', views.update_component, name='update_component'),
     path('api/item/<int:item_id>/total-component-cost/', views.get_item_total_component_cost, name='get_item_total_component_cost'),
     path('api/item/<int:item_id>/', views.get_item_details, name='get_item_details'),

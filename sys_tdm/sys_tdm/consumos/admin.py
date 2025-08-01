@@ -10,7 +10,7 @@ class OperadorAdmin(admin.ModelAdmin):
 class ItemConsumidoInline(admin.TabularInline):
     model = ItemConsumido
     extra = 1  # Quantidade de formulários extras para exibir
-    fields = ['data_consumo', 'componente', 'descricao_detalhada', 'quantidade', 'unidade']
+    fields = ['data_consumo', 'item_estocavel', 'descricao_detalhada', 'quantidade', 'unidade']
 
 @admin.register(FichaConsumoObra)
 class FichaConsumoObraAdmin(admin.ModelAdmin):

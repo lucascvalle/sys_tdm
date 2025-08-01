@@ -25,7 +25,6 @@
                     <tr>
                         <th>Categoria</th>
                         <th>Nome</th>
-                        <th>Descrição</th>
                         <th>Unidade</th>
                         <th>Ações</th>
                     </tr>
@@ -35,7 +34,6 @@
                         <tr>
                             <td>{{ produto_template.categoria.nome }}</td>
                             <td>{{ produto_template.nome }}</td>
-                            <td>{{ produto_template.descricao }}</td>
                             <td>{{ produto_template.unidade }}</td>
                             <td>
                                 <a href="{% url 'listar_produto_configuracoes' %}?template_id={{ produto_template.id }}" class="btn btn-sm btn-secondary">Ver Configurações</a>

@@ -10,9 +10,7 @@ class Orcamento(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
     versao = models.PositiveIntegerField(default=1)
-    versao_base = models.PositiveIntegerField(default=1,
-        help_text='Indica a versão do orçamento que serviu de base (para versões >1)')
-
+    versao_base = models.PositiveIntegerField(default=1, help_text='Indica a versão do orçamento que serviu de base (para versões >1)')
     # Novos campos para armazenar dados extraídos do codigo_legado
     nome_cliente = models.CharField(max_length=255, blank=True, null=True)
     tipo_cliente = models.CharField(max_length=10, blank=True, null=True) # Ex: 'EP' ou 'PC'
@@ -32,13 +30,10 @@ class ItemOrcamento(models.Model):
     orcamento = models.ForeignKey(Orcamento, on_delete=models.CASCADE, related_name='itens')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     codigo_item_manual = models.CharField(max_length=50, blank=True, null=True, help_text="Código manual do item no orçamento (ex: P01)")
-    
     # Relacionamento com a configuração do produto, que é mais geral
     configuracao = models.ForeignKey(ProdutoConfiguracao, on_delete=models.PROTECT, null=True, blank=True)
-    
     # Relacionamento com a instância específica do produto (pode ser nulo para itens de template)
     instancia = models.ForeignKey(ProdutoInstancia, on_delete=models.PROTECT, null=True, blank=True)
-    
     # Campos para informações de preço e quantidade
     preco_unitario = models.DecimalField(max_digits=12, decimal_places=2)
     quantidade = models.PositiveIntegerField()

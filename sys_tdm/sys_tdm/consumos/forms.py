@@ -1,6 +1,6 @@
 from django import forms
 from .models import FichaConsumoObra, ItemConsumido, SessaoTrabalho, PostoTrabalho, Operador
-from produtos.models import Componente
+from estoque.models import ItemEstocavel # Importa o novo modelo
 
 class OperadorForm(forms.ModelForm):
     class Meta:
@@ -24,7 +24,7 @@ class FichaConsumoObraForm(forms.ModelForm):
 class ItemConsumidoForm(forms.ModelForm):
     class Meta:
         model = ItemConsumido
-        fields = ['data_consumo', 'componente', 'descricao_detalhada', 'quantidade', 'unidade']
+        fields = ['data_consumo', 'item_estocavel', 'descricao_detalhada', 'quantidade', 'unidade']
         widgets = {
             'data_consumo': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -41,7 +41,7 @@ class SessaoTrabalhoForm(forms.ModelForm):
 class MaterialConsumptionReportFilterForm(forms.Form):
     data_inicio = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     data_fim = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
-    componente = forms.ModelChoiceField(queryset=Componente.objects.all(), required=False, empty_label="Todos os Componentes")
+    item_estocavel = forms.ModelChoiceField(queryset=ItemEstocavel.objects.all(), required=False, empty_label="Todos os Itens")
     ficha_obra = forms.ModelChoiceField(queryset=FichaConsumoObra.objects.all(), required=False, empty_label="Todas as Obras")
 
 class MachineUtilizationReportFilterForm(forms.Form):

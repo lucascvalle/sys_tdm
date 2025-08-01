@@ -44,15 +44,58 @@ class ItemConsumido(models.Model):
     ficha_obra = models.ForeignKey(FichaConsumoObra, on_delete=models.CASCADE, related_name='itens_consumidos')
     data_consumo = models.DateField(help_text="O dia em que o material foi efetivamente consumido")
 
-    componente = models.ForeignKey('produtos.Componente', on_delete=models.PROTECT, related_name='consumos_itens', null=True, blank=True)
+    # O ForeignKey agora aponta para o item físico em estoque
+    item_estocavel = models.ForeignKey('estoque.ItemEstocavel', on_delete=models.PROTECT, related_name='consumos', null=True)
+    # O campo 'componente' antigo foi comentado e será removido no futuro.
+    # componente = models.ForeignKey('produtos.Componente', on_delete=models.PROTECT, related_name='consumos_itens', null=True, blank=True)
+    
     descricao_detalhada = models.CharField(max_length=255, blank=True, null=True, help_text="Ex: HTD-H1000, Cor: Branco")
 
     quantidade = models.DecimalField(max_digits=10, decimal_places=2)
     unidade = models.CharField(max_length=10, help_text="Ex: m, kg, un")
 
     def __str__(self):
-        componente_nome = self.componente.nome if self.componente else "N/A"
-        return f"{self.quantidade} {self.unidade} de {componente_nome} em {self.data_consumo}"
+        return f"{self.quantidade} {self.unidade} de {self.item_estocavel.nome} em {self.data_consumo}"
+
+    def save(self, *args, **kwargs):
+        from estoque.models import Lote, MovimentoEstoque
+        from django.db import transaction, models
+        from django.db.models import Sum
+        from django.core.exceptions import ValidationError
+
+        # Envolve toda a lógica em uma transação para garantir a integridade dos dados
+        with transaction.atomic():
+            # Verifica se há estoque suficiente
+            total_disponivel = Lote.objects.filter(item=self.item_estocavel).aggregate(total=Sum('quantidade_atual'))['total'] or 0
+            if total_disponivel < self.quantidade:
+                raise ValidationError(f"Estoque insuficiente para {self.item_estocavel.nome}. Disponível: {total_disponivel}, Necessário: {self.quantidade}")
+
+            # Salva o ItemConsumido primeiro para ter um ID
+            super().save(*args, **kwargs)
+
+            quantidade_a_deduzir = self.quantidade
+            lotes_disponiveis = Lote.objects.filter(item=self.item_estocavel, quantidade_atual__gt=0).order_by('data_entrada')
+
+            for lote in lotes_disponiveis:
+                if quantidade_a_deduzir <= 0:
+                    break
+
+                quantidade_do_lote = min(lote.quantidade_atual, quantidade_a_deduzir)
+                
+                # Deduz do lote
+                lote.quantidade_atual -= quantidade_do_lote
+                lote.save()
+
+                # Cria o movimento de estoque
+                MovimentoEstoque.objects.create(
+                    lote=lote,
+                    quantidade=-quantidade_do_lote, # Saída é negativa
+                    tipo='SAIDA',
+                    responsavel=self.ficha_obra.responsavel, # Assumindo que o responsável da ficha é quem aciona
+                    origem_consumo=self
+                )
+
+                quantidade_a_deduzir -= quantidade_do_lote
 
 
 class Operador(models.Model):

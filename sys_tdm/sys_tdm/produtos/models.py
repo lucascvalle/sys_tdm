@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from estoque.models import ItemEstocavel
 
 User = get_user_model()
 
@@ -27,6 +28,7 @@ class Componente(models.Model):
     nome = models.CharField(max_length=200)
     custo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     unidade = models.CharField(max_length=20)
+    itens_compativeis = models.ManyToManyField(ItemEstocavel, blank=True, related_name="componentes_conceptuais")
 
     def __str__(self):
         return self.nome

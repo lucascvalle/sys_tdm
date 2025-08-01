@@ -1,26 +1,27 @@
-feat: Implement dynamic descriptions and KPI dashboard
+feat: Enhance Excel exports, implement stock adjustment, and improve UI/UX
 
-This commit introduces two main features and several improvements:
+This commit introduces significant improvements across various modules, focusing on enhanced Excel exports, a new stock adjustment feature, and general UI/UX refinements.
 
-**Features:**
+**Excel Export Enhancements (`orcamentos/excel_utils.py`):**
+- **Production Sheet Formatting:** Corrected model row handling and cleanup for `exportar_ficha_producao_excel`.
+- **Component Description Detail:** Modified component listing format in the production sheet to include detailed descriptions (e.g., "Un - HTD-100").
+- **Template Integration:** Implemented appending content from `modelo_final_ficha.xlsx` to the production sheet, ensuring proper styling and merged cell handling.
+- **Dependency Fix:** Added missing `Border` and `Side` imports for `openpyxl.styles`.
 
-1.  **Dynamic Budget Descriptions:**
-    *   Adds template fields to the `ProdutoTemplate` and `ProdutoConfiguracao` models.
-    *   Allows creating formatted descriptions for budget items and configurations using attribute and component variables (e.g., `{{ altura }}`, `{{ componentes.fechadura }}`).
-    *   The rendering logic is applied to both the Excel export and the web interface for consistent presentation.
+**Stock Management (`estoque` app):**
+- **Stock Adjustment Feature:** Implemented `AjustarEstoqueView` with logic for positive and negative stock adjustments, recording `MovimentoEstoque` entries.
+- **URL Configuration:** Added `ajustar_estoque` URL pattern in `estoque/urls.py`.
+- **Model Update:** Added `observacao` field to the `MovimentoEstoque` model for adjustment justifications.
+- **UI/UX Improvement:** Updated `ajustar_estoque.html` with a user-friendly form, clear instructions for "Nova Quantidade Física Correta", and accurate display of current aggregated stock quantities.
 
-2.  **Consumption KPI Dashboard:**
-    *   Creates a new dashboard page at `/consumos/relatorios/kpis/`.
-    *   Implements an API endpoint for consumption details per project (`obra`).
-    *   Displays the following KPIs:
-        *   Total Production Time.
-        *   Tables for Production Time by Workstation and by Operator.
-        *   Table for Average Time per Operation.
-        *   An interactive section to view detailed material consumption per project, with a dropdown for selection.
+**Product Module Refinements (`produtos` app):**
+- **Configuration Filtering:** Implemented filtering for `listar_produto_configuracoes` by name/description and category.
+- **Instance Filtering:** Added filtering capabilities to `listar_produto_instancias` by code/configuration name, category, and associated budget client name. Also added a "Nome Orçamento" column.
+- **Template List Fix:** Resolved `FieldError` in `listar_produtos_template` by removing an invalid `descricao__icontains` filter.
+- **Template List UI:** Removed the redundant "Descrição" column from the `listar_produtos_template` page.
+- **Data Propagation:** Ensured `descricao_personalizada` from `ConfiguracaoComponenteEscolha` is correctly passed to `InstanciaComponente.descricao_detalhada` during `ItemOrcamento` creation.
 
-**Fixes & Refactoring:**
-
-*   Fixes the normalization of template variable names to handle accents and special characters.
-*   Refactors the `editar_orcamento` view and the Excel export to support the new description and hierarchical numbering logic.
-*   Improves UI consistency by moving the dashboard link to the reports section.
-*   Resolves various `IndentationError` and `TemplateSyntaxError` issues that arose during development.
+**General UI/UX & Bug Fixes:**
+- **Navigation Cleanup:** Removed duplicate "Estoque" navigation item from `base.html`.
+- **Consumption API Fix:** Corrected `FieldError` in `get_consumos_por_obra_api` by updating `select_related` and item name access to use `item_estocavel`.
+- **Report Fix:** Corrected `FieldError` in `MaterialConsumptionReportView` and `exportar_material_consumption_excel` by updating field references to `item_estocavel__nome`.

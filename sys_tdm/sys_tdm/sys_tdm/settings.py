@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-e58&y$i64u$yfwl(%*g&tqnmo=2z7jr3=xmb1fusaq-7bez!d#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '2.83.53.224']
 
 
 # Application definition
@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'produtos',
     'contas',
     'consumos.apps.ConsumosConfig',
+    'estoque.apps.EstoqueConfig',
 ]
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"

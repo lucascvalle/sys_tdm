@@ -19,7 +19,6 @@ import math # Importar o módulo math
 import sys # Adicionado para depuração
 
 
-
 @login_required
 def listar_orcamentos(request):
     orcamentos = Orcamento.objects.all().order_by('-criado_em')
@@ -250,7 +249,8 @@ def editar_orcamento(request, orcamento_id):
                             instancia=nova_instancia,
                             componente=componente_real_escolhido.componente_real,
                             quantidade=quantidade_componente,
-                            custo_unitario=componente_real_escolhido.componente_real.custo_unitario
+                            custo_unitario=componente_real_escolhido.componente_real.custo_unitario,
+                            descricao_detalhada=componente_real_escolhido.descricao_personalizada # Add this line
                         )
                     else:
                         messages.warning(request, f"Componente real não encontrado para {tc.componente.nome} na configuração {configuracao.nome}.")
@@ -354,6 +354,27 @@ def exportar_orcamento_excel(request, orcamento_id):
 
 @login_required
 def exportar_ficha_producao(request, orcamento_id):
+    orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
+    itens_orcamento = orcamento.itens.all().select_related('configuracao__template', 'instancia__configuracao__template').prefetch_related('instancia__atributos__template_atributo__atributo', 'instancia__componentes__componente')
+
+    try:
+        return export_ficha_producao_util(request, orcamento, itens_orcamento)
+    except FileNotFoundError:
+        messages.error(request, "O arquivo de template Excel para a ficha de produção não foi encontrado.")
+        return redirect('editar_orcamento', orcamento_id=orcamento.id)
+    except Exception as e:
+        messages.error(request, f"Erro ao exportar a ficha de produção: {e}")
+        return redirect('editar_orcamento', orcamento_id=orcamento.id)
+
+
+
+
+
+import sys # Adicionado para depuração
+
+
+@login_required
+def gerar_ficha_producao(request, orcamento_id):
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
     itens_orcamento = orcamento.itens.all().select_related('configuracao__template', 'instancia__configuracao__template').prefetch_related('instancia__atributos__template_atributo__atributo', 'instancia__componentes__componente')
 

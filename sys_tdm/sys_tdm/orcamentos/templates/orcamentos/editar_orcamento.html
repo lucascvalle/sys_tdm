@@ -56,7 +56,12 @@
         <div>
             <a href="{% url 'listar_orcamentos' %}" class="btn btn-secondary me-2">Voltar para a Lista de Orçamentos</a>
             <a href="{% url 'exportar_orcamento_excel' orcamento.id %}" class="btn btn-success me-2">Exportar para Excel</a>
-            <a href="{% url 'exportar_ficha_producao' orcamento.id %}" class="btn btn-primary me-2">Imprimir Ficha de Produção</a>
+            {% if orcamento.ficha_producao %}
+                <a href="{% url 'ficha_producao_detail' orcamento.ficha_producao.pk %}" class="btn btn-success me-2">Ver Ficha de Produção</a>
+            {% else %}
+                <a href="{% url 'gerar_ficha_producao' orcamento.id %}" class="btn btn-primary me-2">Gerar Ficha de Produção</a>
+            {% endif %}
+            <a href="{% url 'exportar_ficha_producao' orcamento.id %}" class="btn btn-info me-2">Imprimir Ficha de Produção</a>
             <a href="{% url 'versionar_orcamento' orcamento.id %}" class="btn btn-info">Criar Nova Versão</a>
         </div>
     </div>
@@ -499,7 +504,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('DEBUG: loadAndDisplayPriceManagement called with itemId:', itemId); // New log
         try {
             const itemDetailsPromise = fetch(`/orcamentos/api/item/${itemId}/`).then(res => res.json());
-            const componentesPromise = fetch(`/orcamentos/api/item/${itemId}/componentes/`).then(res => res.json());
+            const componentesPromise = fetch(`/orcamentos/item/${itemId}/componentes/`).then(res => res.json());
 
             const [item, componentes] = await Promise.all([itemDetailsPromise, componentesPromise]);
 
