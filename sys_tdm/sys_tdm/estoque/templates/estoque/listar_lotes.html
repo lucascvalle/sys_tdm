@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualizar Lotes - Estoque{% endblock %}
+
+{% block content %}
+    <h1>Visualizar Lotes</h1>
+    <a href="{% url 'estoque:home' %}" class="btn btn-secondary mb-3">Voltar</a>
+
+    <form method="get" class="mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <label for="item" class="form-label">Filtrar por Item</label>
+                <select name="item" id="id_item" class="form-select">
+                    <option value="">Todos os Itens</option>
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+            </div>
+        </div>
+    </form>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Data de Entrada</th>
+                <th>Quantidade Inicial</th>
+                <th>Quantidade Atual</th>
+                <th>Custo Unitário</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lote in lotes %}
+                <tr>
+                    <td>{{ lote.item.nome }}</td>
+                    <td>{{ lote.data_entrada }}</td>
+                    <td>{{ lote.quantidade_inicial }}</td>
+                    <td>{{ lote.quantidade_atual }}</td>
+                    <td>{{ lote.custo_unitario_compra }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5">Nenhum lote encontrado.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#id_item').select2({
+            placeholder: 'Selecione um item',
+            allowClear: true,
+            ajax: {
+                url: '{% url "estoque:api_listar_itens_estocaveis" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term, // search term
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(data, function (item) {
+                            return {
+                                id: item.id,
+                                text: item.nome
+                            }
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // Set initial selected value if present
+        var selectedItemId = "{{ request.GET.item }}";
+        var selectedItemName = "{{ selected_item_name }}"; // You'll need to pass this from the view
+
+        if (selectedItemId && selectedItemName) {
+            var option = new Option(selectedItemName, selectedItemId, true, true);
+            $('#id_item').append(option).trigger('change');
+        }
+    });
+</script>
+{% endblock %}

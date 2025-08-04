@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes do Item - Estoque{% endblock %}
+
+{% block content %}
+    <h1>Detalhes do Item</h1>
+
+    <div class="card">
+        <div class="card-header">
+            {{ item.nome }}
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">{{ item.nome }}</h5>
+            <p class="card-text"><strong>Categoria:</strong> {{ item.categoria.nome }}</p>
+            <p class="card-text"><strong>Descrição:</strong> {{ item.descricao }}</p>
+            <p class="card-text"><strong>SKU Fornecedor:</strong> {{ item.codigo_sku_fornecedor }}</p>
+            <p class="card-text"><strong>Código Interno:</strong> {{ item.codigo_interno_gerado }}</p>
+            <p class="card-text"><strong>Unidade de Medida:</strong> {{ item.get_unidade_medida_display }}</p>
+            <p class="card-text"><strong>Largura:</strong> {{ item.largura_mm }} mm</p>
+            <p class="card-text"><strong>Altura:</strong> {{ item.altura_mm }} mm</p>
+            <p class="card-text"><strong>Espessura:</strong> {{ item.espessura_mm }} mm</p>
+            <a href="{% url 'estoque:listar_itens_estocaveis' %}" class="btn btn-primary">Voltar para a Lista</a>
+        </div>
+    </div>
+{% endblock %}

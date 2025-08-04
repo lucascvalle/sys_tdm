@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Categorias - Estoque{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Gerenciar Categorias</h1>
+        <a href="{% url 'estoque:criar_categoria' %}" class="btn btn-primary">Criar Nova Categoria</a>
+    </div>
+    <a href="{% url 'estoque:home' %}" class="btn btn-secondary mb-3">Voltar</a>
+
+    <div class="list-group">
+        {% for categoria in categorias %}
+            <a href="#" class="list-group-item list-group-item-action">{{ categoria.nome }}</a>
+        {% empty %}
+            <p>Nenhuma categoria encontrada.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

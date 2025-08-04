@@ -13,6 +13,13 @@ def exportar_consumo_material_excel(request, consumos_agregados, filtros):
     try:
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
+        template_sheet_base = workbook.active # Store a reference to the original sheet structure
+
+        MATERIAL_ROW_LIMIT = 51
+        MATERIAL_START_ROW = 9
+        current_row = MATERIAL_START_ROW
+        current_sheet_index = 1
+        sheet.title = f"Relatório Consumo - Página {current_sheet_index}"
 
         # Preencher cabeçalho do relatório com filtros aplicados
         # Assumindo que os rótulos estão na coluna A do template
@@ -27,10 +34,15 @@ def exportar_consumo_material_excel(request, consumos_agregados, filtros):
         sheet['E8'] = "Tipo Un"
 
         # Inserir dados na tabela a partir da linha 9, saltando uma linha
-        current_row = 9
         for consumo in consumos_agregados:
+            if current_row > MATERIAL_ROW_LIMIT:
+                current_sheet_index += 1
+                sheet = workbook.copy_worksheet(template_sheet_base)
+                sheet.title = f"Relatório Consumo - Página {current_sheet_index}"
+                current_row = MATERIAL_START_ROW
+
             sheet.merge_cells(f'A{current_row}:C{current_row}')
-            componente_display = f"{consumo['componente__nome']}"
+            componente_display = f"{consumo['item_estocavel__nome']}"
             if consumo['descricao_detalhada']:
                 componente_display += f" - {consumo['descricao_detalhada']}"
             sheet.cell(row=current_row, column=1, value=componente_display)
@@ -59,6 +71,13 @@ def exportar_utilizacao_maquina_excel(request, sessoes_trabalho, filtros):
     try:
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
+        template_sheet_base = workbook.active # Store a reference to the original sheet structure
+
+        MACHINE_ROW_LIMIT = 40
+        MACHINE_START_ROW = 8
+        current_row = MACHINE_START_ROW
+        current_sheet_index = 1
+        sheet.title = f"Relatório Máquinas - Página {current_sheet_index}"
 
         # Preencher cabeçalho do relatório
         sheet['B4'] = filtros.get('posto_trabalho', 'N/A')
@@ -68,14 +87,19 @@ def exportar_utilizacao_maquina_excel(request, sessoes_trabalho, filtros):
         # Assumindo que os rótulos já estão no template na linha 7
 
         # Inserir dados na tabela a partir da linha 8
-        current_row = 8
         for sessao in sessoes_trabalho:
+            if current_row > MACHINE_ROW_LIMIT:
+                current_sheet_index += 1
+                sheet = workbook.copy_worksheet(template_sheet_base)
+                sheet.title = f"Relatório Máquinas - Página {current_sheet_index}"
+                current_row = MACHINE_START_ROW
+
             sheet.cell(row=current_row, column=1, value=sessao.operador.nome)
             sheet.cell(row=current_row, column=2, value=sessao.ficha_obra.ref_obra if sessao.ficha_obra else "N/A")
             sheet.cell(row=current_row, column=3, value=sessao.operacao)
             sheet.cell(row=current_row, column=4, value=sessao.hora_inicio.strftime('%H:%M'))
             sheet.cell(row=current_row, column=5, value=sessao.hora_saida.strftime('%H:%M') if sessao.hora_saida else '--')
-            current_row += 1
+            current_row += 2
 
         output = io.BytesIO()
         workbook.save(output)

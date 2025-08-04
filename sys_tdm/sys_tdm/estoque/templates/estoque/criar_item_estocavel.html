@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Criar Item Estocável - Estoque{% endblock %}
+
+{% block content %}
+    <h1>Criar Novo Item Estocável</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'estoque:listar_itens_estocaveis' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+{% endblock %}

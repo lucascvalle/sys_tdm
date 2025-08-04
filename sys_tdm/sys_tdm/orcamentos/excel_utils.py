@@ -1,23 +1,56 @@
-from django.http import HttpResponse
-from django.conf import settings
-import openpyxl
+"""Utility functions for exporting budget and production data to Excel files.
+
+This module contains the core logic for:
+- Copying cell values and styles in OpenPyXL.
+- Formatting detailed item descriptions based on product instances and configurations.
+- Sanitizing names for use in template variables.
+- Rendering instance and configuration descriptions using Django templates.
+- Exporting budget data to Excel, including hierarchical grouping.
+- Exporting production sheet data to Excel.
+"""
+
+from __future__ import annotations
 import io
+import re
+import decimal
 from copy import copy
+from collections import defaultdict
+from typing import Any, Dict, List, TYPE_CHECKING
+
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Border, Side, Alignment
+from django.template import Template, Context
+
+from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Border, Side
-from django.template import Template, Context
-import decimal
-import re
-from collections import defaultdict
+from django.utils.translation import gettext_lazy as _
 
 # Importações de modelos necessárias
 from orcamentos.models import Orcamento, ItemOrcamento
-from produtos.models import ProdutoInstancia, ProdutoTemplate, Categoria, Atributo, ProdutoConfiguracao, InstanciaAtributo, InstanciaComponente, Componente, TemplateComponente
+from produtos.models import (
+    ProdutoInstancia, ProdutoTemplate, Categoria, Atributo, ProdutoConfiguracao,
+    InstanciaAtributo, InstanciaComponente, Componente, TemplateComponente,
+    ConfiguracaoComponenteEscolha
+)
 
-def copy_cell(source_cell, target_cell):
-    """Copia valor e estilo de forma defensiva, garantindo que number_format nunca seja None."""
+# Type checking for HttpRequest to avoid circular imports if needed
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
+
+def copy_cell(source_cell: openpyxl.cell.cell.Cell, target_cell: openpyxl.cell.cell.Cell) -> None:
+    """
+    Copia valor e estilo de forma defensiva de uma célula de origem para uma célula de destino.
+
+    Garante que `number_format` nunca seja `None` para evitar erros.
+
+    Args:
+        source_cell: A célula de onde copiar o valor e o estilo.
+        target_cell: A célula para onde copiar o valor e o estilo.
+    """
     target_cell.value = source_cell.value if source_cell.value is not None else ""
     if source_cell.has_style:
         target_cell.font = copy(source_cell.font)
@@ -27,8 +60,17 @@ def copy_cell(source_cell, target_cell):
         target_cell.alignment = copy(source_cell.alignment)
         target_cell.number_format = source_cell.number_format or 'General'
 
-def copy_style(source_cell, target_cell):
-    """Copia apenas o estilo de forma defensiva, garantindo que number_format nunca seja None."""
+
+def copy_style(source_cell: openpyxl.cell.cell.Cell, target_cell: openpyxl.cell.cell.Cell) -> None:
+    """
+    Copia apenas o estilo de forma defensiva de uma célula de origem para uma célula de destino.
+
+    Garante que `number_format` nunca seja `None`.
+
+    Args:
+        source_cell: A célula de onde copiar o estilo.
+        target_cell: A célula para onde copiar o estilo.
+    """
     if source_cell.has_style:
         target_cell.font = copy(source_cell.font)
         target_cell.border = copy(source_cell.border)
@@ -37,7 +79,18 @@ def copy_style(source_cell, target_cell):
         target_cell.alignment = copy(source_cell.alignment)
         target_cell.number_format = source_cell.number_format or 'General'
 
-def _format_detailed_item_description_base(item, include_monetary_values=True):
+
+def _format_detailed_item_description_base(item: ItemOrcamento, include_monetary_values: bool = True) -> str:
+    """
+    Formata uma descrição detalhada de um item de orçamento, incluindo atributos e componentes.
+
+    Args:
+        item: O objeto `ItemOrcamento` a ser formatado.
+        include_monetary_values: Se `True`, inclui custos unitários dos componentes.
+
+    Returns:
+        Uma string contendo a descrição formatada do item.
+    """
     display_name = ""
     componentes_str = ""
 
@@ -60,42 +113,71 @@ def _format_detailed_item_description_base(item, include_monetary_values=True):
             display_name += f" ({'x'.join(numeric_attrs)})mm"
 
         # Componentes Calculados da Instância
-        componentes_str = "\n--- Componentes ---\n"
+        componentes_str = "\n" + _("--- Componentes ---") + "\n"
         for ic in item.instancia.componentes.all():
             component_line = f"- {ic.componente.nome}: {ic.quantidade} {ic.componente.unidade}"
             if include_monetary_values:
-                component_line += f" (Custo Unit: {ic.custo_unitario})"
+                component_line += f" (" + str(_("Custo Unit")) + f": {ic.custo_unitario})"
             component_line += "\n"
             if ic.descricao_detalhada:
-                component_line += f"  Detalhes: {ic.descricao_detalhada}\n"
+                component_line += f"  " + str(_("Detalhes")) + f": {ic.descricao_detalhada}\n"
             componentes_str += component_line
 
     elif item.configuracao:
         display_name = item.configuracao.nome
         # Para itens que são apenas configurações (pais), podemos listar os componentes do template
         # mas sem quantidades calculadas, pois não há uma instância específica.
-        componentes_str = "\n--- Componentes (Padrão) ---\n"
+        componentes_str = "\n" + _("--- Componentes (Padrão) ---") + "\n"
         for tc in item.configuracao.template.componentes.all():
             # Tenta encontrar a escolha de componente real para esta configuração
             escolha = item.configuracao.componentes_escolha.filter(template_componente=tc).first()
             componente_nome = escolha.componente_real.nome if escolha else tc.componente.nome
-            componentes_str += f"- {componente_nome}: {tc.quantidade_fixa or 'Variável'} {tc.componente.unidade}\n"
+            componentes_str += f"- {componente_nome}: {tc.quantidade_fixa or _('Variável')} {tc.componente.unidade}\n"
     else:
-        display_name = "Item de Orçamento Genérico"
+        display_name = _("Item de Orçamento Genérico")
 
     if item.codigo_item_manual:
         display_name = f"{item.codigo_item_manual} - {display_name}"
 
     return display_name + componentes_str
 
-def _formatar_detalhes_item_orcamento(item):
+
+def _formatar_detalhes_item_orcamento(item: ItemOrcamento) -> str:
+    """
+    Formata os detalhes de um item de orçamento para exibição no Excel do orçamento.
+
+    Args:
+        item: O objeto `ItemOrcamento`.
+
+    Returns:
+        Uma string formatada com os detalhes do item e seus custos.
+    """
     return _format_detailed_item_description_base(item, include_monetary_values=True)
 
-def _formatar_detalhes_item_ficha_producao(item):
+
+def _formatar_detalhes_item_ficha_producao(item: ItemOrcamento) -> str:
+    """
+    Formata os detalhes de um item de orçamento para exibição na Ficha de Produção do Excel.
+
+    Args:
+        item: O objeto `ItemOrcamento`.
+
+    Returns:
+        Uma string formatada com os detalhes do item, sem incluir valores monetários.
+    """
     return _format_detailed_item_description_base(item, include_monetary_values=False)
 
-# Helper para sanitizar nomes para serem usados como variáveis de template
-def _sanitize_name(name):
+
+def _sanitize_name(name: str) -> str:
+    """
+    Sanitiza um nome para ser usado como variável de template, removendo acentos e caracteres especiais.
+
+    Args:
+        name: A string a ser sanitizada.
+
+    Returns:
+        A string sanitizada.
+    """
     if not name:
         return ""
     # 1. Converter para minúsculas
@@ -112,12 +194,20 @@ def _sanitize_name(name):
     # 4. Remover '_' no início/fim
     return s.strip('_')
 
-def render_instancia_descricao(item_orcamento):
-    """Renderiza a descrição para uma linha de instância (nível 1.1.1) usando o template de instância.
-       Foca-se nos atributos.
+
+def render_instancia_descricao(item_orcamento: ItemOrcamento) -> str:
+    """
+    Renderiza a descrição para uma linha de instância (nível 1.1.1) usando o template de instância.
+    Foca-se nos atributos da instância.
+
+    Args:
+        item_orcamento: O objeto `ItemOrcamento` contendo a instância.
+
+    Returns:
+        Uma string com a descrição renderizada da instância.
     """
     if not item_orcamento.instancia:
-        return "Instância de item inválida"
+        return _("Instância de item inválida")
 
     instancia = item_orcamento.instancia
     template_produto = instancia.configuracao.template
@@ -153,11 +243,19 @@ def render_instancia_descricao(item_orcamento):
         context = Context(context_data)
         return template.render(context)
     except Exception as e:
-        return f"[ERRO NO TEMPLATE DE INSTÂNCIA: {e}]"
+        return _("[ERRO NO TEMPLATE DE INSTÂNCIA: {error}]").format(error=e)
 
-def render_configuracao_descricao(configuracao):
-    """Renderiza a descrição para uma linha de configuração (nível 1.1) usando o template de configuração.
-       Foca-se nos componentes.
+
+def render_configuracao_descricao(configuracao: ProdutoConfiguracao) -> str:
+    """
+    Renderiza a descrição para uma linha de configuração (nível 1.1) usando o template de configuração.
+    Foca-se nos componentes da configuração.
+
+    Args:
+        configuracao: O objeto `ProdutoConfiguracao`.
+
+    Returns:
+        Uma string com a descrição renderizada da configuração.
     """
     template_str = configuracao.descricao_configuracao_template
 
@@ -180,9 +278,29 @@ def render_configuracao_descricao(configuracao):
         context = Context(context_data)
         return template.render(context)
     except Exception as e:
-        return f"[ERRO NO TEMPLATE DE CONFIGURAÇÃO: {e}]"
+        return _("[ERRO NO TEMPLATE DE CONFIGURAÇÃO: {error}]").format(error=e)
 
-def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral_orcamento):
+
+def exportar_orcamento_excel(request: HttpRequest, orcamento_id: int, itens_orcamento: List[ItemOrcamento], total_geral_orcamento: float) -> HttpResponse:
+    """
+    Gera e serve um arquivo Excel para um orçamento específico.
+
+    Este arquivo inclui uma estrutura hierárquica de itens, com categorias, templates
+    e instâncias de produtos, além de cláusulas adicionais.
+
+    Args:
+        request: O objeto HttpRequest.
+        orcamento_id: O ID do Orcamento a ser exportado.
+        itens_orcamento: Uma lista de `ItemOrcamento` relacionados ao orçamento.
+        total_geral_orcamento: O valor total geral do orçamento.
+
+    Returns:
+        Um HttpResponse contendo o arquivo .xlsx.
+
+    Raises:
+        FileNotFoundError: Se os arquivos de template Excel não forem encontrados.
+        Exception: Para outros erros durante a geração do Excel.
+    """
     orcamento = get_object_or_404(Orcamento, pk=orcamento_id)
     template_path = settings.BASE_DIR / 'static' / 'excel_templates' / 'modelo.xlsx'
     clauses_path = settings.BASE_DIR / 'static' / 'excel_templates' / 'modelo_clausulas.xlsx'
@@ -191,7 +309,7 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
         sheet['B3'] = orcamento.nome_cliente or ''
-        sheet['B4'] = f"Obra: {orcamento.codigo_legado or ''}"
+        sheet['B4'] = str(_("Obra")) + f": {orcamento.codigo_legado or ''}"
         sheet['B5'] = orcamento.codigo_legado or ''
 
         # Capturar estilos das linhas modelo
@@ -201,7 +319,7 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
 
         current_row = 9
         
-        # --- Nova Lógica de Agrupamento Hierárquico ---
+        # --- Lógica de Agrupamento Hierárquico ---
         grouped_items = {}
         for item in itens_orcamento:
             if item.instancia and item.instancia.configuracao:
@@ -222,13 +340,13 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
                 # Adicionar a instância à lista correta
                 grouped_items[categoria_nome][config.id]['instances'].append(item)
 
-        # --- Nova Lógica de Escrita no Excel ---
+        # --- Lógica de Escrita no Excel ---
         category_counter = 0
         for categoria_nome, configs_data in grouped_items.items():
             category_counter += 1
             
             # Nível 1: Artigo (Categoria)
-            sheet.insert_rows(current_row)
+            sheet.insert_rows(current_row) # Insere uma nova linha na posição atual, empurrando o conteúdo existente para baixo
             for col_idx in range(1, 8):
                 copy_style(category_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
             sheet.cell(row=current_row, column=1).value = f"{category_counter}"
@@ -242,7 +360,7 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
                 instances = config_data['instances']
 
                 # Nível 2: Template + Configuração
-                sheet.insert_rows(current_row)
+                sheet.insert_rows(current_row) # Insere uma nova linha na posição atual
                 for col_idx in range(1, 8):
                     copy_style(template_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
                 sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}"
@@ -253,7 +371,7 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
                 instance_counter = 0
                 for item in instances:
                     instance_counter += 1
-                    sheet.insert_rows(current_row)
+                    sheet.insert_rows(current_row) # Insere uma nova linha na posição atual
                     for col_idx in range(1, 8):
                         copy_style(instance_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
                     
@@ -265,8 +383,10 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
                     sheet.cell(row=current_row, column=6).value = float(item.total) if item.total is not None else 0.0
                     current_row += 1
 
+        # Deleta as linhas de modelo após a inserção do conteúdo dinâmico
         sheet.delete_rows(current_row, 3)
 
+        # Carrega e anexa as cláusulas do arquivo modelo_clausulas.xlsx
         clauses_workbook = openpyxl.load_workbook(clauses_path)
         clauses_sheet = clauses_workbook.active
         
@@ -284,6 +404,7 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
 
         sheet.cell(row=current_row, column=7).value = float(total_geral_orcamento) if total_geral_orcamento is not None else 0.0
 
+        # Salva o workbook em um buffer de memória e retorna como HttpResponse
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
@@ -293,40 +414,59 @@ def exportar_orcamento_excel(request, orcamento_id, itens_orcamento, total_geral
         return response
 
     except FileNotFoundError as e:
-        messages.error(request, f"Ocorreu um erro: O arquivo {e.filename} não foi encontrado. Verifique se os templates 'modelo.xlsx' e 'modelo_clausulas.xlsx' estão no lugar certo.")
+        messages.error(request, _("Ocorreu um erro: O arquivo {filename} não foi encontrado. Verifique se os templates 'modelo.xlsx' e 'modelo_clausulas.xlsx' estão no lugar certo.").format(filename=e.filename))
         return redirect('editar_orcamento', orcamento_id=orcamento_id)
     except Exception as e:
-        messages.error(request, f"Erro ao exportar orçamento para Excel: {e}")
+        messages.error(request, _("Erro ao exportar orçamento para Excel: {error}").format(error=e))
         return redirect('editar_orcamento', orcamento_id=orcamento_id)
 
-def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
+
+def exportar_ficha_producao_excel(request: HttpRequest, orcamento: Orcamento, itens_orcamento: List[ItemOrcamento]) -> HttpResponse:
+    """
+    Gera e serve um arquivo Excel para a ficha de produção de um orçamento específico.
+
+    Este arquivo inclui uma estrutura hierárquica de itens, com categorias, templates
+    e instâncias de produtos, além de componentes agregados para a produção.
+
+    Args:
+        request: O objeto HttpRequest.
+        orcamento: O objeto `Orcamento` a ser exportado.
+        itens_orcamento: Uma lista de `ItemOrcamento` relacionados ao orçamento.
+
+    Returns:
+        Um HttpResponse contendo o arquivo .xlsx.
+
+    Raises:
+        FileNotFoundError: Se o arquivo de template Excel não for encontrado.
+        Exception: Para outros erros durante a geração do Excel.
+    """
     template_path = settings.BASE_DIR / 'static' / 'excel_templates' / 'modelo_ficha_producao.xlsx'
 
     try:
         workbook = openpyxl.load_workbook(template_path)
         sheet = workbook.active
-        initial_max_row = sheet.max_row # Store the initial max_row of the template before any insertions
+        initial_max_row = sheet.max_row # Armazena o número máximo de linhas iniciais do template
 
         sheet['B3'] = orcamento.nome_cliente or ''
-        sheet['B4'] = f"Obra: {orcamento.codigo_legado or ''}"
+        sheet['B4'] = str(_("Obra")) + f": {orcamento.codigo_legado or ''}"
         sheet['B5'] = orcamento.codigo_legado or ''
 
-        # Capture styles from model rows (assuming rows 9, 10, 11 are model rows)
+        # Captura estilos das linhas modelo (assumindo que as linhas 9, 10, 11 são linhas modelo)
         category_model_row_styles = [copy(sheet.cell(row=9, column=col_idx)) for col_idx in range(1, 8)]
         aggregated_components_model_row_styles = [copy(sheet.cell(row=10, column=col_idx)) for col_idx in range(1, 8)]
         instance_model_row_styles = [copy(sheet.cell(row=11, column=col_idx)) for col_idx in range(1, 8)]
 
-        # Delete the model rows after capturing their styles
-        # Deleting from the highest row number first to avoid shifting issues
-        sheet.delete_rows(11, 1) # Delete row 11
-        sheet.delete_rows(10, 1) # Delete row 10
-        sheet.delete_rows(9, 1)  # Delete row 9
+        # Deleta as linhas de modelo após capturar seus estilos
+        # Deletando da linha de maior número primeiro para evitar problemas de deslocamento
+        sheet.delete_rows(11, 1) # Deleta linha 11
+        sheet.delete_rows(10, 1) # Deleta linha 10
+        sheet.delete_rows(9, 1)  # Deleta linha 9
 
-        # Adjust current_row to reflect the new starting position for content
-        # If rows 9, 10, 11 were deleted, content that would have started at 12 now starts at 9
+        # Ajusta current_row para refletir a nova posição inicial para o conteúdo
+        # Se as linhas 9, 10, 11 foram deletadas, o conteúdo que começaria na 12 agora começa na 9
         current_row = 9
         
-        # --- Nova Lógica de Agrupamento Hierárquico ---
+        # --- Lógica de Agrupamento Hierárquico ---
         grouped_items = {}
         for item in itens_orcamento:
             if item.instancia and item.instancia.configuracao:
@@ -351,13 +491,13 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
                     component_key = (ic.componente.nome, ic.componente.unidade, ic.descricao_detalhada or '')
                     grouped_items[categoria_nome][config.id]['aggregated_components'][component_key] += float(ic.quantidade) * item.quantidade # Multiplica pela quantidade do item no orçamento
 
-        # --- Nova Lógica de Escrita no Excel ---
+        # --- Lógica de Escrita no Excel ---
         category_counter = 0
         for categoria_nome, configs_data in grouped_items.items():
             category_counter += 1
             
             # Nível 1: Artigo (Categoria)
-            sheet.insert_rows(current_row) # Insert a new row at current_row, pushing existing content down
+            sheet.insert_rows(current_row) # Insere uma nova linha na posição atual
             for col_idx in range(1, 8):
                 copy_style(category_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
             sheet.cell(row=current_row, column=1).value = f"{category_counter}"
@@ -372,13 +512,12 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
                 aggregated_components = config_data['aggregated_components']
 
                 # Nível 1.1: Componentes Agregados
-                sheet.insert_rows(current_row) # Insert a new row at current_row
+                sheet.insert_rows(current_row) # Insere uma nova linha na posição atual
                 for col_idx in range(1, 8):
                     copy_style(aggregated_components_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
                 sheet.cell(row=current_row, column=1).value = f"{category_counter}.{config_counter}"
                 
-                components_list_str = """Componentes:
-"""
+                components_list_str = _("Componentes:") + "\n"
                 for (comp_name, comp_unit, comp_desc), total_qty in aggregated_components.items():
                     unit_display = comp_unit
                     if comp_desc:
@@ -387,14 +526,14 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
                     components_list_str += line + "\n"
                 
                 cell = sheet.cell(row=current_row, column=2, value=components_list_str.strip())
-                cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
+                cell.alignment = Alignment(wrap_text=True)
                 current_row += 1
 
                 # Nível 1.1.1: Instância/Atributos
                 instance_counter = 0
                 for item in instances:
                     instance_counter += 1
-                    sheet.insert_rows(current_row) # Insert a new row at current_row
+                    sheet.insert_rows(current_row) # Insere uma nova linha na posição atual
                     for col_idx in range(1, 8):
                         copy_style(instance_model_row_styles[col_idx - 1], sheet.cell(row=current_row, column=col_idx))
                     
@@ -404,28 +543,27 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
                     sheet.cell(row=current_row, column=4).value = item.quantidade
                     current_row += 1
         
-        # --- Cleanup and Add 5 Blank Rows at the End ---
-        # Delete all rows from current_row (where new content would start) to the original end of the template
-        # This clears any pre-existing content/placeholders below our dynamic content
-        if current_row <= initial_max_row: # Only delete if there are rows to delete
+        # --- Limpeza e Adição de Conteúdo Final ---
+        # Deleta todas as linhas desde current_row até o final original do template
+        if current_row <= initial_max_row: # Apenas deleta se houver linhas para deletar
             sheet.delete_rows(current_row, initial_max_row - current_row + 1)
 
-        # Load modelo_final_ficha.xlsx
+        # Carrega o modelo_final_ficha.xlsx
         final_ficha_path = settings.BASE_DIR / 'static' / 'excel_templates' / 'modelo_final_ficha.xlsx'
         final_ficha_workbook = openpyxl.load_workbook(final_ficha_path)
         final_ficha_sheet = final_ficha_workbook.active
 
-        # Copy content from modelo_final_ficha.xlsx (rows 1-5, columns A-G)
-        row_offset_final_ficha = current_row - 1 # Adjust offset for insertion
-        for r_idx in range(1, 6): # Rows 1 to 5
-            for c_idx in range(1, 8): # Columns A to G
+        # Copia o conteúdo de modelo_final_ficha.xlsx (linhas 1-5, colunas A-G)
+        row_offset_final_ficha = current_row - 1 # Ajusta o offset para inserção
+        for r_idx in range(1, 6): # Linhas 1 a 5
+            for c_idx in range(1, 8):
                 source_cell = final_ficha_sheet.cell(row=r_idx, column=c_idx)
                 target_cell = sheet.cell(row=r_idx + row_offset_final_ficha, column=c_idx)
                 copy_cell(source_cell, target_cell)
 
-        # Copy merged cells from modelo_final_ficha.xlsx
+        # Copia células mescladas de modelo_final_ficha.xlsx
         for merged_range in final_ficha_sheet.merged_cells.ranges:
-            # Only copy if the merged range is within the copied area (rows 1-5, cols A-G)
+            # Apenas copia se o range mesclado estiver dentro da área copiada (linhas 1-5, cols A-G)
             if merged_range.min_row >= 1 and merged_range.max_row <= 5 and \
                merged_range.min_col >= 1 and merged_range.max_col <= 7:
                 min_col_letter = get_column_letter(merged_range.min_col)
@@ -433,16 +571,15 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
                 new_range_string = f"{min_col_letter}{merged_range.min_row + row_offset_final_ficha}:{max_col_letter}{merged_range.max_row + row_offset_final_ficha}"
                 sheet.merge_cells(new_range_string)
 
-        # Explicitly apply the border for the 5th row of the inserted content
-        # This corresponds to the underline in modelo_final_ficha.xlsx
-        underline_row_index = current_row + 4 # 5th row of the copied content
+        # Aplica explicitamente a borda para a 5ª linha do conteúdo inserido
+        # Isso corresponde ao sublinhado em modelo_final_ficha.xlsx
+        underline_row_index = current_row + 4 # 5ª linha do conteúdo copiado
         thin_border = Border(bottom=Side(style='thin'))
-        for col_idx in range(1, 8): # Columns A to G
+        for col_idx in range(1, 8):
             cell = sheet.cell(row=underline_row_index, column=col_idx)
             cell.border = thin_border
 
-        # No need to append 5 blank rows as modelo_final_ficha.xlsx content is added
-
+        # Salva o workbook em um buffer de memória e retorna como HttpResponse
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
@@ -452,6 +589,8 @@ def exportar_ficha_producao_excel(request, orcamento, itens_orcamento):
         return response
 
     except FileNotFoundError:
-        messages.error(request, "O arquivo de template Excel para a ficha de produção (modelo_ficha_producao.xlsx) não foi encontrado.")
+        messages.error(request, _("O arquivo de template Excel para a ficha de produção (modelo_ficha_producao.xlsx) não foi encontrado."))
         return redirect('editar_orcamento', orcamento_id=orcamento.id)
-    
+    except Exception as e:
+        messages.error(request, _("Erro ao exportar a ficha de produção: {error}").format(error=e))
+        return redirect('editar_orcamento', orcamento_id=orcamento.id)

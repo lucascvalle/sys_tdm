@@ -14,11 +14,11 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        <a href="{% url 'admin:estoque_categoriaitem_changelist' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'estoque:listar_categorias' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Gerenciar Categorias
                             <small class="text-muted">Crie e edite as categorias hierárquicas.</small>
                         </a>
-                        <a href="{% url 'admin:estoque_itemestocavel_changelist' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'estoque:listar_itens_estocaveis' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Gerenciar Itens Estocáveis
                             <small class="text-muted">Adicione e configure os itens do seu catálogo.</small>
                         </a>
@@ -34,7 +34,7 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        <a href="{% url 'admin:estoque_lote_add' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'estoque:registrar_entrada' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Registrar Entrada (Novo Lote)
                             <small class="text-muted">Adicione novo material ao estoque.</small>
                         </a>
@@ -56,11 +56,11 @@
                 </div>
                 <div class="card-body">
                      <div class="list-group">
-                        <a href="{% url 'admin:estoque_lote_changelist' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'estoque:listar_lotes' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Visualizar Lotes
                             <small class="text-muted">Veja todos os lotes, quantidades e custos.</small>
                         </a>
-                        <a href="{% url 'admin:estoque_movimentoestoque_changelist' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="{% url 'estoque:listar_movimentacoes' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             Histórico de Movimentações
                             <small class="text-muted">Rastreie todas as entradas, saídas e ajustes.</small>
                         </a>

@@ -16,7 +16,7 @@
             </select>
         </div>
 
-        {{ form.name|crispy }}
+        {{ form|crispy }}
 
         <h3>Escolha de Componentes</h3>
         {{ formset.management_form }}
@@ -126,6 +126,23 @@
                         select.value = initialData[tc.id].componente_real_id;
                     }
                     div.appendChild(select);
+
+                    // Textarea for Descricao Personalizada
+                    const descLabel = document.createElement('label');
+                    descLabel.htmlFor = `id_form-${formIndex}-descricao_personalizada`;
+                    descLabel.classList.add('form-label', 'mt-2');
+                    descLabel.textContent = `Descrição Personalizada para ${tc.componente__nome}:`;
+                    div.appendChild(descLabel);
+
+                    const textarea = document.createElement('textarea');
+                    textarea.classList.add('form-control');
+                    textarea.id = `id_form-${formIndex}-descricao_personalizada`;
+                    textarea.name = `form-${formIndex}-descricao_personalizada`;
+                    textarea.rows = 3;
+                    if (initialData[tc.id] && initialData[tc.id].descricao_personalizada) {
+                        textarea.value = initialData[tc.id].descricao_personalizada;
+                    }
+                    div.appendChild(textarea);
 
                     // Hidden DELETE checkbox for formset
                     const deleteInput = document.createElement('input');

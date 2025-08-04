@@ -14,7 +14,30 @@
             <input type="hidden" name="template" value="{{ template.id }}"> {# Hidden input to send the template ID #}
         </div>
 
-        {{ form.name|crispy }}
+        {{ form|crispy }}
+
+        {% if available_component_variables %}
+        <div class="mt-4 mb-4">
+            <h4>Variáveis de Componentes Disponíveis para Descrição</h4>
+            <p class="text-muted">Use estas variáveis na descrição da configuração para referenciar valores dos componentes.</p>
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome da Variável (Exemplo de Uso)</th>
+                        <th>Descrição Detalhada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for var in available_component_variables %}
+                    <tr>
+                        <td><code>{% templatetag openvariable %}{{ var.name }}{% templatetag closevariable %}</code></td>
+                        <td>{{ var.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
         <h3>Escolha de Componentes</h3>
         {{ formset.management_form }}

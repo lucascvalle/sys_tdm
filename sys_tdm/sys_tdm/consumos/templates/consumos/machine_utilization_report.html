@@ -18,6 +18,7 @@
                 <button type="submit" class="btn btn-primary mt-2">Aplicar Filtros</button>
                 <a href="{% url 'consumos:machine_utilization_report' %}" class="btn btn-secondary mt-2">Limpar Filtros</a>
                 <a href="{% url 'consumos:exportar_machine_utilization_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success mt-2">Exportar para Excel</a>
+                <a href="{% url 'consumos:exportar_machine_utilization_print_model' %}" class="btn btn-info mt-2">Exportar Modelo para Impressão</a>
             </form>
         </div>
     </div>

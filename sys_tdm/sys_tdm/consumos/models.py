@@ -1,74 +1,189 @@
-from django.db import models
+"""
+Models for the Consumos (Consumption) application.
+
+This module defines the data structures for tracking material consumption
+and work sessions related to specific production orders (fichas de obra).
+"""
+
+from __future__ import annotations
+from typing import Any, TYPE_CHECKING
+
+from django.db import models, transaction
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.db.models import Sum
+from django.utils.translation import gettext_lazy as _
+
+# Type checking for potential circular imports
+if TYPE_CHECKING:
+    from estoque.models import ItemEstocavel, Lote, MovimentoEstoque
 
 
 class PostoTrabalho(models.Model):
     """
-    Modelo para centralizar as máquinas/postos de trabalho.
-    """
-    nome = models.CharField(max_length=100, unique=True, help_text="Ex: Serra de Bancada, CNC 1, Bancada de Montagem")
-    custo_hora = models.DecimalField(max_digits=10, decimal_places=2, help_text="Custo operacional por hora do posto")
+    Represents a workstation or machine in the factory.
 
-    def __str__(self):
+    Used to track where work sessions take place and their associated costs.
+    """
+    nome = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text=_("Ex: Serra de Bancada, CNC 1, Bancada de Montagem"),
+        verbose_name=_("Nome do Posto de Trabalho")
+    )
+    custo_hora = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text=_("Custo operacional por hora do posto"),
+        verbose_name=_("Custo por Hora")
+    )
+
+    class Meta:
+        verbose_name = _("Posto de Trabalho")
+        verbose_name_plural = _("Postos de Trabalho")
+        ordering = ['nome']
+
+    def __str__(self) -> str:
+        """Returns the string representation of the workstation."""
         return self.nome
 
 
 class FichaConsumoObra(models.Model):
     """
-    Representa a ficha completa de uma obra, que é preenchida ao longo de vários dias.
+    Represents a complete work order sheet, filled over several days.
+
+    It tracks the overall progress and status of a production order.
     """
     STATUS_CHOICES = [
-        ('planejada', 'Planejada'),
-        ('em_andamento', 'Em Andamento'),
-        ('concluida', 'Concluída'),
-        ('cancelada', 'Cancelada'),
+        ('planejada', _('Planejada')),
+        ('em_andamento', _('Em Andamento')),
+        ('concluida', _('Concluída')),
+        ('cancelada', _('Cancelada')),
     ]
 
-    ref_obra = models.CharField(max_length=100, unique=True, help_text="O código ou nome único da obra")
-    data_inicio = models.DateField(help_text="A data de início dos trabalhos na obra")
-    previsao_entrega = models.DateField(help_text="A data prevista para a conclusão")
-    responsavel = models.ForeignKey(User, on_delete=models.PROTECT, related_name='fichas_consumo')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planejada')
+    ref_obra = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text=_("O código ou nome único da obra"),
+        verbose_name=_("Referência da Obra")
+    )
+    data_inicio = models.DateField(
+        help_text=_("A data de início dos trabalhos na obra"),
+        verbose_name=_("Data de Início")
+    )
+    previsao_entrega = models.DateField(
+        help_text=_("A data prevista para a conclusão"),
+        verbose_name=_("Previsão de Entrega")
+    )
+    responsavel = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='fichas_consumo',
+        verbose_name=_("Responsável"),
+        help_text=_("O usuário responsável por esta ficha de consumo.")
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='planejada',
+        verbose_name=_("Status"),
+        help_text=_("O status atual da ficha de consumo da obra.")
+    )
 
-    def __str__(self):
-        return f"Ficha {self.ref_obra} ({self.get_status_display()})"
+    class Meta:
+        verbose_name = _("Ficha de Consumo de Obra")
+        verbose_name_plural = _("Fichas de Consumo de Obra")
+        ordering = ['ref_obra']
+
+    def __str__(self) -> str:
+        """Returns the string representation of the work order sheet."""
+        return str(_("Ficha")) + " " + self.ref_obra + " (" + self.get_status_display() + ")"
 
 
 class ItemConsumido(models.Model):
     """
-    Representa um único lançamento de consumo de material (matéria-prima ou componente)
-    dentro de uma FichaConsumoObra.
+    Represents a single record of material consumption (raw material or component)
+    within a `FichaConsumoObra`.
+
+    This model triggers stock movements upon saving.
     """
-    ficha_obra = models.ForeignKey(FichaConsumoObra, on_delete=models.CASCADE, related_name='itens_consumidos')
-    data_consumo = models.DateField(help_text="O dia em que o material foi efetivamente consumido")
+    ficha_obra = models.ForeignKey(
+        FichaConsumoObra,
+        on_delete=models.CASCADE,
+        related_name='itens_consumidos',
+        verbose_name=_("Ficha de Obra"),
+        help_text=_("A ficha de consumo de obra à qual este item consumido pertence.")
+    )
+    data_consumo = models.DateField(
+        help_text=_("O dia em que o material foi efetivamente consumido"),
+        verbose_name=_("Data de Consumo")
+    )
 
     # O ForeignKey agora aponta para o item físico em estoque
-    item_estocavel = models.ForeignKey('estoque.ItemEstocavel', on_delete=models.PROTECT, related_name='consumos', null=True)
-    # O campo 'componente' antigo foi comentado e será removido no futuro.
-    # componente = models.ForeignKey('produtos.Componente', on_delete=models.PROTECT, related_name='consumos_itens', null=True, blank=True)
+    item_estocavel = models.ForeignKey(
+        'estoque.ItemEstocavel',
+        on_delete=models.PROTECT,
+        related_name='consumos',
+        null=True,
+        verbose_name=_("Item Estocável"),
+        help_text=_("O item físico do estoque que foi consumido.")
+    )
     
-    descricao_detalhada = models.CharField(max_length=255, blank=True, null=True, help_text="Ex: HTD-H1000, Cor: Branco")
+    descricao_detalhada = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_("Ex: HTD-H1000, Cor: Branco"),
+        verbose_name=_("Descrição Detalhada")
+    )
 
-    quantidade = models.DecimalField(max_digits=10, decimal_places=2)
-    unidade = models.CharField(max_length=10, help_text="Ex: m, kg, un")
+    quantidade = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_("Quantidade"),
+        help_text=_("Quantidade do item consumido.")
+    )
+    unidade = models.CharField(
+        max_length=10,
+        help_text=_("Ex: m, kg, un"),
+        verbose_name=_("Unidade")
+    )
 
-    def __str__(self):
-        return f"{self.quantidade} {self.unidade} de {self.item_estocavel.nome} em {self.data_consumo}"
+    class Meta:
+        verbose_name = _("Item Consumido")
+        verbose_name_plural = _("Itens Consumidos")
+        ordering = ['data_consumo']
 
-    def save(self, *args, **kwargs):
+    def __str__(self) -> str:
+        """Returns the string representation of the consumed item."""
+        return f"{self.quantidade} {self.unidade} " + str(_("de")) + f" {self.item_estocavel.nome} " + str(_("em")) + f" {self.data_consumo}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Overrides the save method to handle stock deduction and create `MovimentoEstoque`.
+
+        This method ensures that when an `ItemConsumido` is saved, the corresponding
+        quantity is deducted from available stock batches (FIFO) and a stock movement
+        record is created.
+
+        Raises:
+            ValidationError: If there is insufficient stock for the consumption.
+        """
+        # Import inside the method to avoid circular imports
         from estoque.models import Lote, MovimentoEstoque
-        from django.db import transaction, models
-        from django.db.models import Sum
-        from django.core.exceptions import ValidationError
 
         # Envolve toda a lógica em uma transação para garantir a integridade dos dados
         with transaction.atomic():
             # Verifica se há estoque suficiente
             total_disponivel = Lote.objects.filter(item=self.item_estocavel).aggregate(total=Sum('quantidade_atual'))['total'] or 0
             if total_disponivel < self.quantidade:
-                raise ValidationError(f"Estoque insuficiente para {self.item_estocavel.nome}. Disponível: {total_disponivel}, Necessário: {self.quantidade}")
+                raise ValidationError(
+                    _("Estoque insuficiente para {item_name}. Disponível: {available}, Necessário: {needed}").format(
+                        item_name=self.item_estocavel.nome,
+                        available=total_disponivel,
+                        needed=self.quantidade
+                    )
+                )
 
             # Salva o ItemConsumido primeiro para ter um ID
             super().save(*args, **kwargs)
@@ -100,26 +215,75 @@ class ItemConsumido(models.Model):
 
 class Operador(models.Model):
     """
-    Representa um operador da fábrica.
+    Represents an operator (employee) in the factory.
     """
-    nome = models.CharField(max_length=100, unique=True)
+    nome = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name=_("Nome do Operador"),
+        help_text=_("Nome completo do operador.")
+    )
 
-    def __str__(self):
+    class Meta:
+        verbose_name = _("Operador")
+        verbose_name_plural = _("Operadores")
+        ordering = ['nome']
+
+    def __str__(self) -> str:
+        """Returns the string representation of the operator."""
         return self.nome
 
 
 class SessaoTrabalho(models.Model):
     """
-    Representa um único registro de uso de uma máquina (Sessão de Trabalho),
-    que ocorre em um dia específico.
-    """
-    posto_trabalho = models.ForeignKey(PostoTrabalho, on_delete=models.PROTECT, related_name='sessoes_trabalho')
-    operador = models.ForeignKey(Operador, on_delete=models.PROTECT, related_name='sessoes_trabalho')
-    ficha_obra = models.ForeignKey(FichaConsumoObra, on_delete=models.PROTECT, related_name='sessoes_trabalho_relacionadas', null=True, blank=True, help_text="A ficha de consumo de obra à qual esta sessão de trabalho está relacionada")
-    operacao = models.TextField(help_text="Descrição da tarefa realizada")
-    hora_inicio = models.DateTimeField(help_text="Data e hora de início da tarefa")
-    hora_saida = models.DateTimeField(null=True, blank=True, help_text="Data e hora de término da tarefa")
+    Represents a single work session or machine usage record.
 
-    def __str__(self):
-        obra_ref = self.ficha_obra.ref_obra if self.ficha_obra else "N/A"
-        return f"Sessão em {self.posto_trabalho} por {self.operador} para obra {obra_ref}"
+    It tracks the time spent by an operator at a specific workstation for a work order.
+    """
+    posto_trabalho = models.ForeignKey(
+        PostoTrabalho,
+        on_delete=models.PROTECT,
+        related_name='sessoes_trabalho',
+        verbose_name=_("Posto de Trabalho"),
+        help_text=_("O posto de trabalho ou máquina utilizada nesta sessão.")
+    )
+    operador = models.ForeignKey(
+        Operador,
+        on_delete=models.PROTECT,
+        related_name='sessoes_trabalho',
+        verbose_name=_("Operador"),
+        help_text=_("O operador que realizou o trabalho nesta sessão.")
+    )
+    ficha_obra = models.ForeignKey(
+        FichaConsumoObra,
+        on_delete=models.PROTECT,
+        related_name='sessoes_trabalho_relacionadas',
+        null=True,
+        blank=True,
+        verbose_name=_("Ficha de Obra"),
+        help_text=_("A ficha de consumo de obra à qual esta sessão de trabalho está relacionada.")
+    )
+    operacao = models.TextField(
+        help_text=_("Descrição da tarefa realizada"),
+        verbose_name=_("Operação")
+    )
+    hora_inicio = models.DateTimeField(
+        help_text=_("Data e hora de início da tarefa"),
+        verbose_name=_("Hora de Início")
+    )
+    hora_saida = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Data e hora de término da tarefa"),
+        verbose_name=_("Hora de Término")
+    )
+
+    class Meta:
+        verbose_name = _("Sessão de Trabalho")
+        verbose_name_plural = _("Sessões de Trabalho")
+        ordering = ['-hora_inicio']
+
+    def __str__(self) -> str:
+        """Returns the string representation of the work session."""
+        obra_ref = self.ficha_obra.ref_obra if self.ficha_obra else _("N/A")
+        return str(_("Sessão em")) + f" {self.posto_trabalho} " + str(_("por")) + f" {self.operador} " + str(_("para obra")) + f" {obra_ref}"

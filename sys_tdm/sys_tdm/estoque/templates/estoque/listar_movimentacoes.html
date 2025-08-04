@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de Movimentações - Estoque{% endblock %}
+
+{% block content %}
+    <h1>Histórico de Movimentações</h1>
+    <a href="{% url 'estoque:home' %}" class="btn btn-secondary mb-3">Voltar</a>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Data/Hora</th>
+                <th>Tipo</th>
+                <th>Item</th>
+                <th>Quantidade</th>
+                <th>Responsável</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movimento in movimentacoes %}
+                <tr>
+                    <td>{{ movimento.timestamp }}</td>
+                    <td>{{ movimento.get_tipo_display }}</td>
+                    <td>{{ movimento.lote.item.nome }}</td>
+                    <td>{{ movimento.quantidade }}</td>
+                    <td>{{ movimento.responsavel.username }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5">Nenhuma movimentação encontrada.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

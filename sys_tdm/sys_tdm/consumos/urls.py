@@ -37,6 +37,9 @@ urlpatterns = [
     path('relatorios/kpis/', views.kpi_dashboard, name='kpi_dashboard'),
     path('relatorios/consumo-material/', views.MaterialConsumptionReportView.as_view(), name='material_consumption_report'),
     path('relatorios/consumo-material/exportar/', views.exportar_material_consumption_excel, name='exportar_material_consumption_excel'),
+    path('relatorios/consumo-material/exportar-modelo-impressao/', views.exportar_material_consumption_print_model, name='exportar_material_consumption_print_model'),
     path('relatorios/utilizacao-maquina/', views.MachineUtilizationReportView.as_view(), name='machine_utilization_report'),
     path('relatorios/utilizacao-maquina/exportar/', views.exportar_machine_utilization_excel, name='exportar_machine_utilization_excel'),
+    path('relatorios/utilizacao-maquina/exportar-modelo-impressao/', views.exportar_machine_utilization_print_model, name='exportar_machine_utilization_print_model'),
+    path('api/fichas-obra/', views.api_listar_fichas_obra, name='api_listar_fichas_obra'),
 ]

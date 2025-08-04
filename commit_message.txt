@@ -1,27 +1,10 @@
-feat: Enhance Excel exports, implement stock adjustment, and improve UI/UX
+docs: Document models and fix Excel export errors
 
-This commit introduces significant improvements across various modules, focusing on enhanced Excel exports, a new stock adjustment feature, and general UI/UX refinements.
+This commit focuses on improving code documentation and correcting existing issues:
 
-**Excel Export Enhancements (`orcamentos/excel_utils.py`):**
-- **Production Sheet Formatting:** Corrected model row handling and cleanup for `exportar_ficha_producao_excel`.
-- **Component Description Detail:** Modified component listing format in the production sheet to include detailed descriptions (e.g., "Un - HTD-100").
-- **Template Integration:** Implemented appending content from `modelo_final_ficha.xlsx` to the production sheet, ensuring proper styling and merged cell handling.
-- **Dependency Fix:** Added missing `Border` and `Side` imports for `openpyxl.styles`.
-
-**Stock Management (`estoque` app):**
-- **Stock Adjustment Feature:** Implemented `AjustarEstoqueView` with logic for positive and negative stock adjustments, recording `MovimentoEstoque` entries.
-- **URL Configuration:** Added `ajustar_estoque` URL pattern in `estoque/urls.py`.
-- **Model Update:** Added `observacao` field to the `MovimentoEstoque` model for adjustment justifications.
-- **UI/UX Improvement:** Updated `ajustar_estoque.html` with a user-friendly form, clear instructions for "Nova Quantidade Física Correta", and accurate display of current aggregated stock quantities.
-
-**Product Module Refinements (`produtos` app):**
-- **Configuration Filtering:** Implemented filtering for `listar_produto_configuracoes` by name/description and category.
-- **Instance Filtering:** Added filtering capabilities to `listar_produto_instancias` by code/configuration name, category, and associated budget client name. Also added a "Nome Orçamento" column.
-- **Template List Fix:** Resolved `FieldError` in `listar_produtos_template` by removing an invalid `descricao__icontains` filter.
-- **Template List UI:** Removed the redundant "Descrição" column from the `listar_produtos_template` page.
-- **Data Propagation:** Ensured `descricao_personalizada` from `ConfiguracaoComponenteEscolha` is correctly passed to `InstanciaComponente.descricao_detalhada` during `ItemOrcamento` creation.
-
-**General UI/UX & Bug Fixes:**
-- **Navigation Cleanup:** Removed duplicate "Estoque" navigation item from `base.html`.
-- **Consumption API Fix:** Corrected `FieldError` in `get_consumos_por_obra_api` by updating `select_related` and item name access to use `item_estocavel`.
-- **Report Fix:** Corrected `FieldError` in `MaterialConsumptionReportView` and `exportar_material_consumption_excel` by updating field references to `item_estocavel__nome`.
+- Added module-level docstring to `sys_tdm/sys_tdm/produtos/models.py` for better code clarity and maintainability.
+- Corrected indentation errors, removed duplicate lines, and fixed a syntax error in `sys_tdm/sys_tdm/orcamentos/excel_utils.py`.
+- Other minor adjustments across `consumos`, `estoque`, `orcamentos`, and `produtos` applications, including:
+    - Adding docstrings to forms and admin files.
+    - Updating URLs and templates.
+    - Refactoring some views for clarity.

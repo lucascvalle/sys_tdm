@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Itens Estocáveis - Estoque{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Gerenciar Itens Estocáveis</h1>
+        <a href="{% url 'estoque:criar_item' %}" class="btn btn-primary">Criar Novo Item</a>
+    </div>
+    <a href="{% url 'estoque:home' %}" class="btn btn-secondary mb-3">Voltar</a>
+
+    <form method="GET" class="mb-3">
+        <div class="row g-3 align-items-center">
+            <div class="col-auto">
+                <label for="search_query" class="col-form-label">Descrição:</label>
+            </div>
+            <div class="col-auto">
+                <input type="text" id="search_query" name="q" class="form-control" value="{{ search_query }}">
+            </div>
+            <div class="col-auto">
+                <label for="categoria_filter" class="col-form-label">Categoria:</label>
+            </div>
+            <div class="col-auto">
+                <select id="categoria_filter" name="categoria" class="form-select">
+                    <option value="">Todas as Categorias</option>
+                    {% for categoria in todas_categorias %}
+                        <option value="{{ categoria.id }}" {% if categoria.id|stringformat:"s" == selected_categoria %}selected{% endif %}>{{ categoria.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+            </div>
+        </div>
+    </form>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Unidade</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+                <tr>
+                    <td>{{ item.nome }}</td>
+                    <td>{{ item.categoria.nome }}</td>
+                    <td>{{ item.get_unidade_medida_display }}</td>
+                    <td>
+                        <a href="{% url 'estoque:detalhes_item' item.pk %}" class="btn btn-sm btn-info">Detalhes</a>
+                        <a href="{% url 'estoque:editar_item' item.pk %}" class="btn btn-sm btn-warning">Editar</a>
+                        <a href="{% url 'estoque:excluir_item' item.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4">Nenhum item encontrado.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

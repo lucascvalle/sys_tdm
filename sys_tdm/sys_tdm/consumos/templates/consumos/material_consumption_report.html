@@ -18,6 +18,7 @@
                 <button type="submit" class="btn btn-primary mt-2">Aplicar Filtros</button>
                 <a href="{% url 'consumos:material_consumption_report' %}" class="btn btn-secondary mt-2">Limpar Filtros</a>
                 <a href="{% url 'consumos:exportar_material_consumption_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success mt-2">Exportar para Excel</a>
+                <a href="{% url 'consumos:exportar_material_consumption_print_model' %}" class="btn btn-info mt-2">Exportar Modelo para Impressão</a>
             </form>
         </div>
     </div>
@@ -27,7 +28,7 @@
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Componente</th>
+                        <th>Componente/Matéria-Prima</th>
                         <th>Quantidade Total</th>
                         <th>Unidade</th>
                     </tr>
@@ -35,7 +36,7 @@
                 <tbody>
                     {% for consumo in consumos_agregados %}
                     <tr>
-                        <td>{{ consumo.componente__nome }}</td>
+                        <td>{{ consumo.item_estocavel__nome }}</td>
                         <td>{{ consumo.total_quantidade|floatformat:2 }}</td>
                         <td>{{ consumo.unidade }}</td>
                     </tr>
@@ -53,4 +54,83 @@
         <a href="{% url 'consumos:home' %}" class="btn btn-secondary">Voltar para o Dashboard de Consumos</a>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize Select2 for item_estocavel
+        $('.select2-item-estocavel').select2({
+            placeholder: 'Selecione um item estocável',
+            allowClear: true,
+            ajax: {
+                url: '{% url "estoque:api_listar_itens_estocaveis" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(data, function (item) {
+                            return {
+                                id: item.id,
+                                text: item.nome
+                            }
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // Initialize Select2 for ficha_obra
+        $('.select2-ficha-obra').select2({
+            placeholder: 'Selecione uma ficha de obra',
+            allowClear: true,
+            ajax: {
+                url: '{% url "consumos:api_listar_fichas_obra" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(data, function (ficha) {
+                            return {
+                                id: ficha.id,
+                                text: ficha.ref_obra
+                            }
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // Set initial selected values if present
+        var selectedItemId = "{{ request.GET.item_estocavel }}";
+        var selectedItemName = "{{ filter_form.item_estocavel.value.nome }}"; // Assuming the form field has a .nome attribute
+        if (selectedItemId && selectedItemName) {
+            var option = new Option(selectedItemName, selectedItemId, true, true);
+            $('.select2-item-estocavel').append(option).trigger('change');
+        }
+
+        var selectedFichaId = "{{ request.GET.ficha_obra }}";
+        var selectedFichaName = "{{ filter_form.ficha_obra.value.ref_obra }}"; // Assuming the form field has a .ref_obra attribute
+        if (selectedFichaId && selectedFichaName) {
+            var option = new Option(selectedFichaName, selectedFichaId, true, true);
+            $('.select2-ficha-obra').append(option).trigger('change');
+        }
+    });
+</script>
 {% endblock %}
