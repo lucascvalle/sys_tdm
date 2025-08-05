@@ -18,3 +18,4 @@ static_collected/
 # Debugging/Temporary files
 debug_docker_logs.txt
 debug_logs.txt
+commit_message.txt
