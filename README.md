@@ -1,8 +1,8 @@
-# SysOrc - Sistema Integrado de Gestão de Orçamentos, Produtos e Consumos
+# Sys_TDM - Sistema de Gestão Técnica para Dados Complexos
 
 ## Descrição do Projeto
 
-O SysOrc é um sistema web integrado desenvolvido para otimizar a gestão de processos de orçamentação, catalogação de produtos com configurações avançadas e rastreamento detalhado de consumos de materiais e tempo de trabalho. Construído com Django, o sistema visa proporcionar uma ferramenta robusta para empresas que necessitam de controle preciso sobre seus custos de produção e recursos.
+O Sys_TDM é um sistema web integrado desenvolvido para otimizar a gestão de processos de orçamentação, catalogação de produtos com configurações avançadas e rastreamento detalhado de consumos de materiais e tempo de trabalho. Construído com Django, o sistema visa proporcionar uma ferramenta robusta para empresas que necessitam de controle preciso sobre seus custos de produção e recursos.
 
 ## Funcionalidades
 
